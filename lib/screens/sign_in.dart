@@ -11,6 +11,7 @@ import '../page/home_user.dart';
 import '../services/login_service.dart';
 import '../utils/snack_bar.dart';
 import 'forgot_password.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SigninScreen extends StatefulWidget {
   final List<CameraDescription>? cameras;
@@ -33,6 +34,70 @@ class _SigninScreenState extends State<SigninScreen> {
   bool _isAdmin = false;
   String serverMessage = '';
   String token = '';
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      await _googleSignIn.signOut(); // đảm bảo chọn lại tài khoản mỗi lần
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+
+      if (account != null) {
+        final email = account.email;
+        final name = account.displayName ?? '';
+        final googleId = account.id;
+
+        final response = await SignInService.signInWithGoogle({
+          "email": email,
+          "name": name,
+          "googleId": googleId,
+        });
+
+        if (response['status'] == "OK") {
+          final String accessToken = response['access_token'];
+
+          await myBox.put('userId', response['userId']);
+          await myBox.put('name', response['name']);
+          await myBox.put('isAdmin', response['isAdmin'] ?? false);
+          await myBox.put('token', accessToken);
+
+          final decoded = await DecodeTokenService.decodeToken(accessToken);
+          if (decoded['status'] == "OK") {
+            if (response['isAdmin'] == true) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => AdminHome()),
+              );
+            } else {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => UserHome()),
+              );
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Google Sign-In successful'), backgroundColor: Colors.green),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Token decode failed'), backgroundColor: Colors.red),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response['message']), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (error) {
+      print("Google Sign-In error: $error");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign in failed: $error'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+
 
   Future<void> _signIn() async {
     if (_formKey.currentState?.validate() ?? false) {
@@ -398,8 +463,8 @@ class _SigninScreenState extends State<SigninScreen> {
                               ),
                             ),
                             const SizedBox(width: 5),
-                            Container(
-                              padding: const EdgeInsets.all(7),
+                            GestureDetector(
+                              onTap: _signInWithGoogle,
                               child: Image.asset(
                                 "assets/images/google.png",
                                 width: 100,

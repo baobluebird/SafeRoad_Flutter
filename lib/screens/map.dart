@@ -12,8 +12,7 @@ import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-import 'maintain_map.dart';
+import '../services/detection_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -30,16 +29,19 @@ class MapScreenState extends State<MapScreen> {
 
   Set<Marker> _markers = {};
   late BitmapDescriptor _userIcon;
-  late BitmapDescriptor _smallHoleIcon;
+  // late BitmapDescriptor _smallHoleIcon;
   late BitmapDescriptor _largeHoleIcon;
-  late BitmapDescriptor _smallCrackIcon;
+  // late BitmapDescriptor _smallCrackIcon;
   late BitmapDescriptor _largeCrackIcon;
   late BitmapDescriptor _maintainIcon;
 
-  List<dynamic> smallHoles = [];
-  List<dynamic> largeHoles = [];
-  List<dynamic> smallCracks = [];
-  List<dynamic> largeCracks = [];
+  // List<dynamic> smallHoles = [];
+  // List<dynamic> largeHoles = [];
+  // List<dynamic> smallCracks = [];
+  // List<dynamic> largeCracks = [];
+  List<dynamic> holes = [];
+  List<dynamic> cracks = [];
+
 
   bool _iconsLoaded = false;
   Position? _currentPosition; // Change to nullable type
@@ -119,9 +121,9 @@ class MapScreenState extends State<MapScreen> {
 
       setState(() {
         _userIcon = BitmapDescriptor.fromBytes(location);
-        _smallHoleIcon = BitmapDescriptor.fromBytes(smallHole);
+        // _smallHoleIcon = BitmapDescriptor.fromBytes(smallHole);
         _largeHoleIcon = BitmapDescriptor.fromBytes(largeHole);
-        _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
+        // _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
         _largeCrackIcon = BitmapDescriptor.fromBytes(largeCrack);
         _maintainIcon = BitmapDescriptor.fromBytes(maintain);
         _iconsLoaded = true; // Đặt _iconsLoaded sau khi tất cả icon được tải
@@ -156,17 +158,14 @@ class MapScreenState extends State<MapScreen> {
   }
 
   Future<void> fetchData() async {
-    var url = Uri.parse('$ip/detection/get-detection');
-    var response = await http.get(url);
-    if (response.statusCode == 200) {
-      var jsonResponse = json.decode(response.body);
-      if (!mounted) return; // 🔥 Tránh lỗi gọi setState() sau khi widget bị hủy
+    final response = await DetectionCoordinateService.getDetectionCoordinates();
 
+    if (!mounted) return;
+
+    if (response['status'] == 'OK') {
       setState(() {
-        smallHoles = jsonResponse['latLongSmallHole'];
-        largeHoles = jsonResponse['latLongLargeHole'];
-        smallCracks = jsonResponse['latLongSmallCrack'];
-        largeCracks = jsonResponse['latLongLargeCrack'];
+        holes = [...response['latLongSmallHole'], ...response['latLongLargeHole']];
+        cracks = [...response['latLongSmallCrack'], ...response['latLongLargeCrack']];
       });
 
       if (_iconsLoaded) {
@@ -174,63 +173,43 @@ class MapScreenState extends State<MapScreen> {
         _fetchAndDrawRoutes();
         _updateMarkers();
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Error loading data')),
+      );
     }
   }
+
 
 
   void _updateMarkers() {
     setState(() {
       _markers.clear();
-      int smallHoleIndex = 0;
-      for (var item in smallHoles) {
+
+      int holeIndex = 0;
+      for (var item in holes) {
         _markers.add(
           Marker(
-            markerId: MarkerId('smallHole$smallHoleIndex'),
+            markerId: MarkerId('hole$holeIndex'),
             position: LatLng(item[0], item[1]),
-            infoWindow: InfoWindow(title: 'Hole', snippet: 'Small Hole'),
-            icon: _smallHoleIcon,
+            infoWindow: InfoWindow(title: 'Hole'),
+            icon: _largeHoleIcon, // dùng icon lớn
           ),
         );
-        smallHoleIndex++;
+        holeIndex++;
       }
 
-      int largeHoleIndex = 0;
-      for (var item in largeHoles) {
+      int crackIndex = 0;
+      for (var item in cracks) {
         _markers.add(
           Marker(
-            markerId: MarkerId('largeHole$largeHoleIndex'),
+            markerId: MarkerId('crack$crackIndex'),
             position: LatLng(item[0], item[1]),
-            infoWindow: InfoWindow(title: 'Hole', snippet: 'Large Hole'),
-            icon: _largeHoleIcon,
+            infoWindow: InfoWindow(title: 'Crack'),
+            icon: _largeCrackIcon, // dùng icon lớn
           ),
         );
-        largeHoleIndex++;
-      }
-
-      int smallCrackIndex = 0;
-      for (var item in smallCracks) {
-        _markers.add(
-          Marker(
-            markerId: MarkerId('smallCrack$smallCrackIndex'),
-            position: LatLng(item[0], item[1]),
-            infoWindow: InfoWindow(title: 'Crack', snippet: 'Small Crack'),
-            icon: _smallCrackIcon,
-          ),
-        );
-        smallCrackIndex++;
-      }
-
-      int largeCrackIndex = 0;
-      for (var item in largeCracks) {
-        _markers.add(
-          Marker(
-            markerId: MarkerId('largeCrack$largeCrackIndex'),
-            position: LatLng(item[0], item[1]),
-            infoWindow: InfoWindow(title: 'Crack', snippet: 'Large Crack'),
-            icon: _largeCrackIcon,
-          ),
-        );
-        largeCrackIndex++;
+        crackIndex++;
       }
 
       if (_iconsLoaded && _currentPosition != null) {
@@ -238,13 +217,14 @@ class MapScreenState extends State<MapScreen> {
           Marker(
             markerId: MarkerId('myLocation'),
             position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            infoWindow: InfoWindow(title: 'Your Location', snippet: 'This is where you are.'),
+            infoWindow: InfoWindow(title: 'Your Location'),
             icon: _userIcon,
           ),
         );
       }
     });
   }
+
 
   Future<void> _drawRouteForMap(LatLng source, LatLng destination, int date, String createdAt, String updatedAt) async {
     final response = await http.get(Uri.parse(
@@ -298,13 +278,13 @@ class MapScreenState extends State<MapScreen> {
 
 
   Future<void> _fetchAndDrawRoutes() async {
-    var url = Uri.parse('$ip/detection/get-maintain-road');
-    var response = await http.get(url);
+    final response = await getListMaintainService.getListMaintain();
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body)['data'];
+    if (!mounted) return;
+
+    if (response['status'] == 'OK') {
+      final data = response['data'];
       for (var route in data) {
-        if (!mounted) return; // 🔥 Kiểm tra widget còn tồn tại trước khi tiếp tục
         final locationA = _parseLatLng(route['locationA']);
         final locationB = _parseLatLng(route['locationB']);
         final date = route['dateMaintain'];
@@ -313,12 +293,12 @@ class MapScreenState extends State<MapScreen> {
         await _drawRouteForMap(locationA, locationB, date, createdAt, updatedAt);
       }
     } else {
-      if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch routes from server'))
+        SnackBar(content: Text(response['message'] ?? 'Failed to fetch routes')),
       );
     }
   }
+
 
 
   LatLng _parseLatLng(String latLngString) {
@@ -467,6 +447,7 @@ class MapScreenState extends State<MapScreen> {
                   children: [
                     Row(
                       children: [
+                        const SizedBox(width: 10),
                         Text(
                           'Maintain',
                           style: GoogleFonts.beVietnamPro(
@@ -476,29 +457,29 @@ class MapScreenState extends State<MapScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 20),
+                        //const SizedBox(width: 10),
                         Image.asset('assets/images/fix_road.png', width: 40, height: 40)
                       ],
                     ),
+                    // Row(
+                    //   children: [
+                    //     Text(
+                    //       'Small Hole',
+                    //       style: GoogleFonts.beVietnamPro(
+                    //         textStyle: const TextStyle(
+                    //           fontSize: 15,
+                    //           color: Colors.black,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     const SizedBox(width: 10),
+                    //     Image.asset('assets/images/small_hole.png', width: 40, height: 40)
+                    //   ],
+                    // ),
                     Row(
                       children: [
                         Text(
-                          'Small Hole',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Image.asset('assets/images/small_hole.png', width: 40, height: 40)
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          'Large Hole',
+                          'Hole',
                           style: GoogleFonts.beVietnamPro(
                             textStyle: const TextStyle(
                               fontSize: 15,
@@ -510,27 +491,27 @@ class MapScreenState extends State<MapScreen> {
                         Image.asset('assets/images/large_hole.png', width: 45, height: 45)
                       ],
                     ),
+                    // const SizedBox(height: 10),
+                    // Row(
+                    //   children: [
+                    //     Text(
+                    //       'Small Crack',
+                    //       style: GoogleFonts.beVietnamPro(
+                    //         textStyle: const TextStyle(
+                    //           fontSize: 15,
+                    //           color: Colors.black,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     const SizedBox(width: 5),
+                    //     Image.asset('assets/images/small_crack.png', width: 40, height: 40)
+                    //   ],
+                    // ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Text(
-                          'Small Crack',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Image.asset('assets/images/small_crack.png', width: 40, height: 40)
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          'Large Crack',
+                          'Crack',
                           style: GoogleFonts.beVietnamPro(
                             textStyle: const TextStyle(
                               fontSize: 15,

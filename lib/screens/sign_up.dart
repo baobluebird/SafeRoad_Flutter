@@ -33,13 +33,17 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _signUpWithGoogle() async {
     try {
+      // 🔥 Force sign out trước
+      await _googleSignIn.signOut();
+
+      // Sau đó bắt đầu lại quá trình đăng nhập
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
+
       if (account != null) {
         final email = account.email;
-        final name = account.displayName;
+        final name = account.displayName ?? '';
         final id = account.id;
 
-        // Gửi dữ liệu này đến server Node.js để tạo tài khoản
         final user = {
           "email": email,
           "name": name,
@@ -48,7 +52,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
         final response = await SignUpService.signUpWithGoogle(user);
         if (response['status'] == 'OK') {
-          // Đăng ký thành công
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response['message']), backgroundColor: Colors.green),
           );
@@ -63,6 +66,7 @@ class _SignupScreenState extends State<SignupScreen> {
       print("Google Sign-In error: $error");
     }
   }
+
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(

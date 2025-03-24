@@ -43,10 +43,13 @@ class _ManagementScreenState extends State<ManagementScreen> {
   List<dynamic>? _listCrack;
   List<dynamic>? _listMaintain;
 
-  List<dynamic> smallHoles = [];
-  List<dynamic> largeHoles = [];
-  List<dynamic> smallCracks = [];
-  List<dynamic> largeCracks = [];
+  // List<dynamic> smallHoles = [];
+  // List<dynamic> largeHoles = [];
+  // List<dynamic> smallCracks = [];
+  // List<dynamic> largeCracks = [];
+
+  List<dynamic> holes = [];
+  List<dynamic> cracks = [];
 
   int _totalHole = 0;
   int _totalCrack = 0;
@@ -74,10 +77,12 @@ class _ManagementScreenState extends State<ManagementScreen> {
   }
 
   void _updateMarkers() {
-    smallHoles = [];
-    largeHoles = [];
-    smallCracks = [];
-    largeCracks = [];
+    // smallHoles = [];
+    // largeHoles = [];
+    // smallCracks = [];
+    // largeCracks = [];
+    holes = [];
+    cracks = [];
     _markers.clear();
     polylines.clear();
     _getUserLocation();
@@ -144,13 +149,14 @@ class _ManagementScreenState extends State<ManagementScreen> {
         setState(() {
           _listHole = response['data'];
           _totalHole = response['total'];
-          for (var item in _listHole!) {
-            if (item['description'] == 'Small') {
-              smallHoles.add(item);
-            } else {
-              largeHoles.add(item);
-            }
-          }
+          holes = _listHole!;
+          // for (var item in _listHole!) {
+          //   if (item['description'] == 'Small') {
+          //     smallHoles.add(item);
+          //   } else {
+          //     largeHoles.add(item);
+          //   }
+          // }
         });
         if (_iconsLoaded) {
           _addMarkersHoles();
@@ -162,7 +168,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
   }
 
   void _addMarkersHoles() {
-    for (var item in smallHoles) {
+    for (var item in holes) {
       var location = item['location'];
       var coordinates = _parseLocation(location);
       if (coordinates != null) {
@@ -175,30 +181,8 @@ class _ManagementScreenState extends State<ManagementScreen> {
             },
             infoWindow: InfoWindow(
               title: 'Hole',
-              snippet: 'Small Hole',
             ),
-            icon: _smallHoleIcon, // Use custom icon
-          ),
-        );
-        setState(() {});
-      }
-    }
-    for (var item in largeHoles) {
-      var location = item['location'];
-      var coordinates = _parseLocation(location);
-      if (coordinates != null) {
-        _markers.add(
-          Marker(
-            markerId: MarkerId(location),
-            position: coordinates,
-            onTap: () {
-              _getDetailHole(item['_id']);
-            },
-            infoWindow: InfoWindow(
-              title: 'Hole',
-              snippet: 'Large Hole',
-            ),
-            icon: _largeHoleIcon, // Use custom icon
+            icon: _largeHoleIcon, // luôn dùng icon large
           ),
         );
         setState(() {});
@@ -234,56 +218,41 @@ class _ManagementScreenState extends State<ManagementScreen> {
   }
 
   Future<void> _deleteDetection(String detectionId, String nameList) async {
-    String url;
-    if (nameList == 'Hole') {
-      url = '$ip/detection/delete-hole/$detectionId';
-    } else if (nameList == 'Crack') {
-      url = '$ip/detection/delete-crack/$detectionId';
-    } else {
-      url = '$ip/detection/delete-maintain/$detectionId';
-    }
+    final response = await deleteDetectionService.deleteDetection(detectionId, nameList);
 
-    final response = await http.delete(Uri.parse(url));
-    if (response.statusCode == 200) {
-      if (nameList == 'Hole') {
-        setState(() {
+    if (response['status'] == 'OK') {
+      setState(() {
+        if (nameList == 'Hole') {
           _listHole!.removeWhere((hole) => hole['_id'] == detectionId);
           _totalHole = _listHole!.length;
-        });
-      } else if (nameList == 'Crack') {
-        setState(() {
+        } else if (nameList == 'Crack') {
           _listCrack!.removeWhere((crack) => crack['_id'] == detectionId);
           _totalCrack = _listCrack!.length;
-        });
-      } else {
-        setState(() {
-          _listMaintain!
-              .removeWhere((maintain) => maintain['_id'] == detectionId);
+        } else {
+          _listMaintain!.removeWhere((maintain) => maintain['_id'] == detectionId);
           _totalMaintain = _listMaintain!.length;
-        });
-      }
+        }
+      });
 
       Navigator.pop(context);
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${nameList} deleted successfully!'),
+          content: Text('$nameList deleted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
-      setState(() {
-        _updateMarkers();
-      });
 
+      _updateMarkers();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to delete ${nameList}.'),
+          content: Text('Failed to delete $nameList.'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
+
 
   Future<void> _showDeleteConfirmationDialog(
       String detectionId, String nameList) async {
@@ -326,14 +295,15 @@ class _ManagementScreenState extends State<ManagementScreen> {
         setState(() {
           _listCrack = response['data'];
           _totalCrack = response['total'];
+          cracks = _listCrack!;
         });
-        for (var item in _listCrack!) {
-          if (item['description'] == 'Small') {
-            smallCracks.add(item);
-          } else {
-            largeCracks.add(item);
-          }
-        }
+        // for (var item in _listCrack!) {
+        //   if (item['description'] == 'Small') {
+        //     smallCracks.add(item);
+        //   } else {
+        //     largeCracks.add(item);
+        //   }
+        // }
         if (_iconsLoaded) {
           _addMarkersCracks();
         }
@@ -344,7 +314,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
   }
 
   void _addMarkersCracks() {
-    for (var item in smallCracks) {
+    for (var item in cracks) {
       var location = item['location'];
       var coordinates = _parseLocation(location);
       if (coordinates != null) {
@@ -357,36 +327,15 @@ class _ManagementScreenState extends State<ManagementScreen> {
             },
             infoWindow: InfoWindow(
               title: 'Crack',
-              snippet: 'Small Crack',
             ),
-            icon: _smallCrackIcon, // Use custom icon
-          ),
-        );
-        setState(() {});
-      }
-    }
-    for (var item in largeCracks) {
-      var location = item['location'];
-      var coordinates = _parseLocation(location);
-      if (coordinates != null) {
-        _markers.add(
-          Marker(
-            markerId: MarkerId(location),
-            position: coordinates,
-            onTap: () {
-              _getDetailCrack(item['_id']);
-            },
-            infoWindow: InfoWindow(
-              title: 'Crack',
-              snippet: 'Large Crack',
-            ),
-            icon: _largeCrackIcon, // Use custom icon
+            icon: _largeCrackIcon,
           ),
         );
         setState(() {});
       }
     }
   }
+
 
   Future<void> _getDetailCrack(String id) async {
     final Map<String, dynamic> response =
@@ -417,39 +366,48 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
   //get list maintain
   Future<void> _getListMaintain() async {
-    var url = Uri.parse('$ip/detection/get-maintain-road');
-    var response = await http.get(url);
+    final response = await getListMaintainService.getListMaintain();
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body)['data'];
+    if (response['status'] == 'OK') {
+      final data = response['data'];
       setState(() {
         _listMaintain = data;
         _totalMaintain = data.length;
       });
+
       for (var route in data) {
         final locationA = _parseLatLng(route['locationA']);
         final locationB = _parseLatLng(route['locationB']);
         final dateMaintain = route['dateMaintain'];
         final createdAt = route['createdAt'];
         final updatedAt = route['updatedAt'];
-        await _drawRouteFormap(route['sourceName'], route['destinationName'],
-            locationA, locationB, dateMaintain, createdAt, updatedAt);
+
+        await _drawRouteFormap(
+          route['sourceName'],
+          route['destinationName'],
+          locationA,
+          locationB,
+          dateMaintain,
+          createdAt,
+          updatedAt,
+        );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch routes from server')));
+        SnackBar(content: Text('Failed to fetch maintain list')),
+      );
     }
   }
 
   Future<void> _loadCustomIcons() async {
     final Uint8List location =
         await getBytesFromAsset('assets/images/car.png', 100);
-    final Uint8List smallHole =
-        await getBytesFromAsset('assets/images/small_hole.png', 50);
+    // final Uint8List smallHole =
+    //     await getBytesFromAsset('assets/images/small_hole.png', 50);
     final Uint8List largeHole =
         await getBytesFromAsset('assets/images/large_hole.png', 70);
-    final Uint8List smallCrack =
-        await getBytesFromAsset('assets/images/small_crack.png', 50);
+    // final Uint8List smallCrack =
+    //     await getBytesFromAsset('assets/images/small_crack.png', 50);
     final Uint8List largeCrack =
         await getBytesFromAsset('assets/images/large_crack.png', 70);
     final Uint8List maintain =
@@ -457,9 +415,9 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
     setState(() {
       _userIcon = BitmapDescriptor.fromBytes(location);
-      _smallHoleIcon = BitmapDescriptor.fromBytes(smallHole);
+      //_smallHoleIcon = BitmapDescriptor.fromBytes(smallHole);
       _largeHoleIcon = BitmapDescriptor.fromBytes(largeHole);
-      _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
+     // _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
       _largeCrackIcon = BitmapDescriptor.fromBytes(largeCrack);
       _maintainIcon = BitmapDescriptor.fromBytes(maintain);
     });
@@ -1088,7 +1046,6 @@ class _ManagementScreenState extends State<ManagementScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 20),
                         Image.asset('assets/images/fix_road.png',
                             width: 40, height: 40)
                       ],
@@ -1096,23 +1053,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                     Row(
                       children: [
                         Text(
-                          'Small Hole',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Image.asset('assets/images/small_hole.png',
-                            width: 40, height: 40)
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          'Large Hole',
+                          'Hole',
                           style: GoogleFonts.beVietnamPro(
                             textStyle: const TextStyle(
                               fontSize: 15,
@@ -1129,24 +1070,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                     Row(
                       children: [
                         Text(
-                          'Small Crack',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Image.asset('assets/images/small_crack.png',
-                            width: 40, height: 40)
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          'Large Crack',
+                          'Crack',
                           style: GoogleFonts.beVietnamPro(
                             textStyle: const TextStyle(
                               fontSize: 15,

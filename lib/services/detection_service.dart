@@ -135,5 +135,79 @@ class getDetailCrackService {
   }
 }
 
+class getListMaintainService {
+  static Future<Map<String, dynamic>> getListMaintain() async {
+    try {
+      final response = await http.get(Uri.parse('$ip/detection/get-maintain-road'));
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded.containsKey('data')) {
+          return {
+            'status': 'OK',
+            'data': decoded['data'],
+          };
+        } else {
+          return {'status': 'error', 'message': 'Invalid format'};
+        }
+      } else {
+        return {'status': 'error', 'message': 'Non-200 status code'};
+      }
+    } catch (e) {
+      print('Error fetching maintain data: $e');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
+class deleteDetectionService {
+  static Future<Map<String, dynamic>> deleteDetection(String detectionId, String nameList) async {
+    try {
+      String url;
+      if (nameList == 'Hole') {
+        url = '$ip/detection/delete-hole/$detectionId';
+      } else if (nameList == 'Crack') {
+        url = '$ip/detection/delete-crack/$detectionId';
+      } else {
+        url = '$ip/detection/delete-maintain/$detectionId';
+      }
+
+      final response = await http.delete(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        return {'status': 'OK', 'message': 'Deleted successfully'};
+      } else {
+        return {'status': 'error', 'message': 'Failed with status ${response.statusCode}'};
+      }
+    } catch (e) {
+      print('Delete error: $e');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
+class DetectionCoordinateService {
+  static Future<Map<String, dynamic>> getDetectionCoordinates() async {
+    try {
+      final response = await http.get(Uri.parse('$ip/detection/get-detection'));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'status': 'OK',
+          'latLongSmallHole': data['latLongSmallHole'],
+          'latLongLargeHole': data['latLongLargeHole'],
+          'latLongSmallCrack': data['latLongSmallCrack'],
+          'latLongLargeCrack': data['latLongLargeCrack'],
+        };
+      } else {
+        return {'status': 'error', 'message': 'Failed to load detection data'};
+      }
+    } catch (e) {
+      print('Error fetching detection coordinates: $e');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
 
 

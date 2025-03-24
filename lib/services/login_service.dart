@@ -31,6 +31,15 @@ class SignInService {
       return {'status': 'error', 'message': 'Network error'};
     }
   }
+  static Future<Map<String, dynamic>> signInWithGoogle(Map<String, dynamic> data) async {
+    final url = Uri.parse('$ip/user/signin-google'); // <-- đảm bảo đúng route
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
 }
 
 class SignUpService {
