@@ -12,8 +12,6 @@
 .swiftpm/
 migrate_working_dir/
 lib/ipconfig
-android/local.properties
-android/app/google-services.json
 # IntelliJ related
 *.iml
 *.ipr
@@ -45,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/google-services.json
+/android/local.properties
