@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import '../screens/map.dart';
-import '../screens/map_for_user.dart';
-import '../screens/track.dart';
-import '../services/login_service.dart';
+import '../screens/tab/map.dart';
+import '../screens/tab/map_for_user.dart';
+import '../screens/user/profile_user.dart';
+import '../screens/tab/track.dart';
+import '../services/user_service.dart';
 import 'login.dart';
 
 class UserHome extends StatefulWidget {
@@ -101,6 +102,19 @@ class _UserHomeState extends State<UserHome> {
                     ),
                   ],
                 ),
+              ),
+              ListTile(
+                title: const Text('Profile'),
+                leading: const Icon(
+                  Icons.person,
+                ),
+                onTap: () async {
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileUserScreen()),
+                  );
+                },
               ),
               ListTile(
                 title: const Text('Log out'),

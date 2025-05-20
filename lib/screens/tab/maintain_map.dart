@@ -11,6 +11,8 @@ import 'package:pothole/ipconfig/ip.dart';
 import 'dart:ui' as ui;
 import 'package:intl/intl.dart';
 
+import '../../services/detection_service.dart';
+
 class MaintainMapScreen extends StatefulWidget {
   const MaintainMapScreen({Key? key}) : super(key: key);
 
@@ -30,8 +32,8 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
   final TextEditingController _daysController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
-
-
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
 
   bool _iconsLoaded = false;
   Position? _currentPosition;
@@ -55,7 +57,6 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
       _getUserLocation();
       _fetchAndDrawRoutes();
       _showMyLocation();
-
     });
   }
 
@@ -64,10 +65,14 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
   }
 
   Future<void> _loadCustomIcons() async {
-    final Uint8List location =
-    await getBytesFromAsset('assets/images/car.png', 100);
-    final Uint8List maintain =
-        await getBytesFromAsset('assets/images/fix_road.png', 130);
+    final Uint8List location = await getBytesFromAsset(
+      'assets/images/car.png',
+      100,
+    );
+    final Uint8List maintain = await getBytesFromAsset(
+      'assets/images/fix_road.png',
+      130,
+    );
     setState(() {
       _userIcon = BitmapDescriptor.fromBytes(location);
       _maintainIcon = BitmapDescriptor.fromBytes(maintain);
@@ -76,29 +81,39 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
     ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(),
-        targetWidth: width);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: width,
+    );
     ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
+    return (await fi.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!.buffer.asUint8List();
   }
 
   void _showMyLocation() async {
     Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+      desiredAccuracy: LocationAccuracy.high,
+    );
     final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-          target: LatLng(position.latitude, position.longitude), zoom: 17.0),
-    ));
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(position.latitude, position.longitude),
+          zoom: 17.0,
+        ),
+      ),
+    );
   }
 
   Future<void> _getUserLocation() async {
     Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+      desiredAccuracy: LocationAccuracy.high,
+    );
     _kGooglePlex = CameraPosition(
-        target: LatLng(position.latitude, position.longitude), zoom: 14.4746);
+      target: LatLng(position.latitude, position.longitude),
+      zoom: 14.4746,
+    );
     _addMarker(position);
   }
 
@@ -127,15 +142,20 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
           markerId: MarkerId('myLocation'),
           position: LatLng(position.latitude, position.longitude),
           infoWindow: InfoWindow(
-              title: 'Your Location', snippet: 'This is where you are.'),
+            title: 'Your Location',
+            snippet: 'This is where you are.',
+          ),
         ),
       );
     });
   }
 
   Future<List<String>> _fetchSuggestions(String query) async {
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$api_key'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$api_key',
+      ),
+    );
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final predictions = data['predictions'];
@@ -146,8 +166,11 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
   }
 
   Future<void> _searchLocation(String address, bool isSource) async {
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json?address=$address&key=$api_key'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json?address=$address&key=$api_key',
+      ),
+    );
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final location = data['results'][0]['geometry']['location'];
@@ -156,18 +179,22 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
       setState(() {
         if (isSource) {
           _sourcePosition = position;
-          _markers.add(Marker(
-            markerId: MarkerId('sourceLocation'),
-            position: position,
-            infoWindow: InfoWindow(title: 'Source Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('sourceLocation'),
+              position: position,
+              infoWindow: InfoWindow(title: 'Source Location'),
+            ),
+          );
         } else {
           _destinationPosition = position;
-          _markers.add(Marker(
-            markerId: MarkerId('destinationLocation'),
-            position: position,
-            infoWindow: InfoWindow(title: 'Destination Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('destinationLocation'),
+              position: position,
+              infoWindow: InfoWindow(title: 'Destination Location'),
+            ),
+          );
         }
       });
 
@@ -180,13 +207,17 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
   }
 
   Future<void> _drawRoute(LatLng source, LatLng destination) async {
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key',
+      ),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final points = polylinePoints
-          .decodePolyline(data['routes'][0]['overview_polyline']['points']);
+      final points = polylinePoints.decodePolyline(
+        data['routes'][0]['overview_polyline']['points'],
+      );
       List<LatLng> polylineCoordinates = [];
       if (points.isNotEmpty) {
         points.forEach((point) {
@@ -209,20 +240,22 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
     }
   }
 
-  Future<void> _drawRouteFormap(LatLng source, LatLng destination) async {
+  Future<void> _drawRouteForMap(LatLng source, LatLng destination, int date, String createdAt, String updatedAt) async {
     final response = await http.get(Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final points = polylinePoints
-          .decodePolyline(data['routes'][0]['overview_polyline']['points']);
+      final points = polylinePoints.decodePolyline(data['routes'][0]['overview_polyline']['points']);
       List<LatLng> polylineCoordinates = [];
+
       if (points.isNotEmpty) {
         points.forEach((point) {
           polylineCoordinates.add(LatLng(point.latitude, point.longitude));
         });
       }
+
+      if (!mounted) return; // 🔥 Kiểm tra widget còn mounted không trước khi gọi setState()
 
       setState(() {
         final id = PolylineId(source.toString() + '_' + destination.toString());
@@ -234,22 +267,26 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
         );
         polylines[id] = polyline;
 
-        // Calculate the midpoint of the route and add a marker
         if (polylineCoordinates.length > 1) {
-          LatLng midPoint =
-              polylineCoordinates[(polylineCoordinates.length / 2).round()];
+          LatLng midPoint = polylineCoordinates[(polylineCoordinates.length / 2).round()];
           _markers.add(
             Marker(
               markerId: MarkerId('midpoint_${id.value}'),
               position: midPoint,
               icon: _maintainIcon,
-              infoWindow: InfoWindow(title: 'Midpoint'),
+              infoWindow: InfoWindow(
+                title: 'Date maintain: ${date}d',
+                snippet: '${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(createdAt))} - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(updatedAt))}',
+              ),
             ),
           );
         }
       });
     } else {
-      throw Exception('Failed to load directions');
+      if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load directions'))
+      );
     }
   }
 
@@ -260,7 +297,6 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
     return 0;
   }
 
-
   Future<void> _showMaintainDialog() async {
     showDialog(
       context: context,
@@ -268,61 +304,109 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text('Chọn ngày bảo trì'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    title: Text(
-                      _startDate == null
-                          ? "Chọn ngày bắt đầu"
-                          : "Ngày bắt đầu: ${DateFormat('yyyy/MM/dd').format(_startDate!)}",
-                    ),
-                    trailing: Icon(Icons.calendar_today),
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
-                      );
-                      if (pickedDate != null) {
-                        setState(() {
-                          _startDate = pickedDate;
-                        });
-                      }
-                    },
-                  ),
-                  ListTile(
-                    title: Text(
-                      _endDate == null
-                          ? "Chọn ngày kết thúc"
-                          : "Ngày kết thúc: ${DateFormat('yyyy/MM/dd').format(_endDate!)}",
-                    ),
-                    trailing: Icon(Icons.calendar_today),
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: _startDate ?? DateTime.now(),
-                        firstDate: _startDate ?? DateTime.now(),
-                        lastDate: DateTime(2100),
-                      );
-                      if (pickedDate != null) {
-                        setState(() {
-                          _endDate = pickedDate;
-                        });
-                      }
-                    },
-                  ),
-                  if (_startDate != null && _endDate != null) // 🔥 Hiển thị tổng số ngày nếu đã chọn cả hai ngày
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        "Tổng số ngày bảo trì: ${_calculateTotalDays()} ngày",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              title: Text('Chọn thời gian bảo trì'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: Text(
+                        _startDate == null
+                            ? "Chọn ngày bắt đầu"
+                            : "Ngày bắt đầu: ${DateFormat('yyyy/MM/dd').format(_startDate!)}",
                       ),
+                      trailing: Icon(Icons.calendar_today),
+                      onTap: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _startDate ?? DateTime.now(),
+                          firstDate: DateTime.now(), // Restrict to today or later
+                          lastDate: DateTime(2100),
+                        );
+                        if (pickedDate != null) {
+                          setState(() {
+                            _startDate = pickedDate;
+                            // Reset endDate if it's before the new startDate
+                            if (_endDate != null && _endDate!.isBefore(pickedDate)) {
+                              _endDate = null;
+                              _endTime = null;
+                            }
+                          });
+                        }
+                      },
                     ),
-                ],
+                    ListTile(
+                      title: Text(
+                        _startTime == null
+                            ? "Chọn giờ bắt đầu"
+                            : "Giờ bắt đầu: ${_startTime!.format(context)}",
+                      ),
+                      trailing: Icon(Icons.access_time),
+                      onTap: () async {
+                        TimeOfDay? pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: _startTime ?? TimeOfDay.now(),
+                        );
+                        if (pickedTime != null) {
+                          setState(() {
+                            _startTime = pickedTime;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      title: Text(
+                        _endDate == null
+                            ? "Chọn ngày kết thúc"
+                            : "Ngày kết thúc: ${DateFormat('yyyy/MM/dd').format(_endDate!)}",
+                      ),
+                      trailing: Icon(Icons.calendar_today),
+                      onTap: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _endDate ?? (_startDate ?? DateTime.now()),
+                          firstDate: _startDate ?? DateTime.now(), // Restrict to startDate or later
+                          lastDate: DateTime(2100),
+                        );
+                        if (pickedDate != null) {
+                          setState(() {
+                            _endDate = pickedDate;
+                          });
+                        }
+                      },
+                    ),
+                    ListTile(
+                      title: Text(
+                        _endTime == null
+                            ? "Chọn giờ kết thúc"
+                            : "Giờ kết thúc: ${_endTime!.format(context)}",
+                      ),
+                      trailing: Icon(Icons.access_time),
+                      onTap: () async {
+                        TimeOfDay? pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: _endTime ?? TimeOfDay.now(),
+                        );
+                        if (pickedTime != null) {
+                          setState(() {
+                            _endTime = pickedTime;
+                          });
+                        }
+                      },
+                    ),
+                    if (_startDate != null && _endDate != null)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          "Tổng số ngày bảo trì: ${_calculateTotalDays()} ngày",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               actions: <Widget>[
                 TextButton(
@@ -334,10 +418,41 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
                 TextButton(
                   child: Text('Gửi'),
                   onPressed: () {
-                    if (_startDate == null || _endDate == null) {
+                    if (_startDate == null ||
+                        _endDate == null ||
+                        _startTime == null ||
+                        _endTime == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc'),
+                          content: Text(
+                            'Vui lòng chọn đầy đủ ngày và giờ bắt đầu, kết thúc',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    // Validate endDateTime is not before startDateTime
+                    final startDateTime = DateTime(
+                      _startDate!.year,
+                      _startDate!.month,
+                      _startDate!.day,
+                      _startTime!.hour,
+                      _startTime!.minute,
+                    );
+                    final endDateTime = DateTime(
+                      _endDate!.year,
+                      _endDate!.month,
+                      _endDate!.day,
+                      _endTime!.hour,
+                      _endTime!.minute,
+                    );
+                    if (endDateTime.isBefore(startDateTime)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Ngày kết thúc phải sau ngày bắt đầu',
+                          ),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -355,12 +470,29 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
     );
   }
 
-
-
   Future<void> _sendMaintainRequest() async {
     if (_sourcePosition != null &&
         _destinationPosition != null &&
-        _startDate != null && _endDate != null) {
+        _startDate != null &&
+        _endDate != null &&
+        _startTime != null &&
+        _endTime != null) {
+      // Kết hợp ngày và giờ
+      final startDateTime = DateTime(
+        _startDate!.year,
+        _startDate!.month,
+        _startDate!.day,
+        _startTime!.hour,
+        _startTime!.minute,
+      );
+      final endDateTime = DateTime(
+        _endDate!.year,
+        _endDate!.month,
+        _endDate!.day,
+        _endTime!.hour,
+        _endTime!.minute,
+      );
+
       final response = await http.post(
         Uri.parse('$ip/detection/create-maintain-road'),
         headers: <String, String>{
@@ -369,54 +501,69 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
         body: jsonEncode(<String, dynamic>{
           'locationA': _sourcePosition.toString(),
           'locationB': _destinationPosition.toString(),
-          'startDate': _startDate!.toIso8601String(),
-          'endDate': _endDate!.toIso8601String(),
+          'startDate': startDateTime.toIso8601String(),
+          'endDate': endDateTime.toIso8601String(),
           'totalDays': _calculateTotalDays(),
         }),
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Send data successfully'),
-          duration: const Duration(seconds: 1),
-          backgroundColor: Colors.green,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gửi dữ liệu thành công'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Colors.green,
+          ),
+        );
         _markers.removeWhere((marker) => marker.markerId.value != 'myLocation');
         await _fetchAndDrawRoutes();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Send data error'),
-          duration: const Duration(seconds: 1),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi gửi dữ liệu'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Vui lòng nhập đầy đủ thông tin')));
+        SnackBar(
+          content: Text('Vui lòng nhập đầy đủ thông tin'),
+          duration: const Duration(seconds: 1),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _fetchAndDrawRoutes() async {
-    var url = Uri.parse('$ip/detection/get-maintain-road-for-map');
-    var response = await http.get(url);
+    final response = await getListMaintainForMapService.getListMaintainForMap();
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body)['data'];
-      print(data);
+    if (!mounted) return;
+
+    if (response['status'] == 'OK') {
+      final data = response['data'];
       for (var route in data) {
         final locationA = _parseLatLng(route['locationA']);
         final locationB = _parseLatLng(route['locationB']);
-        await _drawRouteFormap(locationA, locationB);
+        final date = route['dateMaintain'];
+        final createdAt = route['createdAt'];
+        final updatedAt = route['updatedAt'];
+        await _drawRouteForMap(locationA, locationB, date, createdAt, updatedAt);
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch routes from server')));
+        SnackBar(content: Text(response['message'] ?? 'Failed to fetch routes')),
+      );
     }
   }
 
   LatLng _parseLatLng(String latLngString) {
-    final parts =
-        latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
+    final parts = latLngString
+        .replaceAll('LatLng(', '')
+        .replaceAll(')', '')
+        .split(',');
     return LatLng(double.parse(parts[0]), double.parse(parts[1]));
   }
 
@@ -437,9 +584,11 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isSelectingByHand
-            ? 'Chế độ chọn bằng tay: Bật'
-            : 'Chế độ chọn bằng tay: Tắt'),
+        content: Text(
+          _isSelectingByHand
+              ? 'Chế độ chọn bằng tay: Bật'
+              : 'Chế độ chọn bằng tay: Tắt',
+        ),
         duration: Duration(seconds: 1),
       ),
     );
@@ -450,19 +599,23 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
       setState(() {
         if (_isSelectingSource) {
           _sourcePosition = tappedPoint;
-          _markers.add(Marker(
-            markerId: MarkerId('sourceLocation'),
-            position: tappedPoint,
-            infoWindow: InfoWindow(title: 'Source Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('sourceLocation'),
+              position: tappedPoint,
+              infoWindow: InfoWindow(title: 'Source Location'),
+            ),
+          );
           _isSelectingSource = false; // Switch to selecting destination next
         } else {
           _destinationPosition = tappedPoint;
-          _markers.add(Marker(
-            markerId: MarkerId('destinationLocation'),
-            position: tappedPoint,
-            infoWindow: InfoWindow(title: 'Destination Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('destinationLocation'),
+              position: tappedPoint,
+              infoWindow: InfoWindow(title: 'Destination Location'),
+            ),
+          );
           _isSelectingSource = true; // Switch back to selecting source next
 
           if (_sourcePosition != null && _destinationPosition != null) {
@@ -476,9 +629,7 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Maintain Road'),
-      ),
+      appBar: AppBar(title: const Text('Create Maintain Road')),
       body: Stack(
         children: [
           GoogleMap(
@@ -505,9 +656,7 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
                           return await _fetchSuggestions(pattern);
                         },
                         itemBuilder: (context, suggestion) {
-                          return ListTile(
-                            title: Text(suggestion),
-                          );
+                          return ListTile(title: Text(suggestion));
                         },
                         onSelected: (suggestion) {
                           _sourceController.text = suggestion;
@@ -526,8 +675,6 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
                           );
                         },
                       ),
-
-
                     ),
                     IconButton(
                       icon: Icon(Icons.search),
@@ -546,9 +693,7 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
                           return await _fetchSuggestions(pattern);
                         },
                         itemBuilder: (context, suggestion) {
-                          return ListTile(
-                            title: Text(suggestion),
-                          );
+                          return ListTile(title: Text(suggestion));
                         },
                         onSelected: (suggestion) {
                           _destinationController.text = suggestion;
@@ -587,21 +732,24 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
             bottom: 85.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag1',
+              heroTag: 'Show My Location Maintain road',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
               onPressed: reload,
               tooltip: 'Show My Location',
-              child:
-              Image.asset('assets/images/car.png', width: 30, height: 30),
+              child: Image.asset(
+                'assets/images/car.png',
+                width: 30,
+                height: 30,
+              ),
             ),
           ),
           Positioned(
             bottom: 130.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag2',
+              heroTag: 'Upload Maintain Road',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
@@ -614,21 +762,22 @@ class MaintainMapScreenState extends State<MaintainMapScreen> {
             bottom: 170.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag3',
+              heroTag: 'Toggle Select Mode',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
               onPressed: _toggleSelectMode,
               tooltip: 'Toggle Select Mode',
-              child:
-                  Icon(_isSelectingByHand ? Icons.touch_app : Icons.pan_tool),
+              child: Icon(
+                _isSelectingByHand ? Icons.touch_app : Icons.pan_tool,
+              ),
             ),
           ),
           Positioned(
             bottom: 210.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag4',
+              heroTag: 'Clear All Maintain Road',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),

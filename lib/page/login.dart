@@ -2,12 +2,12 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
-import '../screens/sign_in.dart';
+import '../screens/user/sign_in.dart';
 import 'package:colorful_background/colorful_background.dart';
 import 'package:lottie/lottie.dart';
 
-import '../screens/sign_up.dart';
-import '../services/login_service.dart';
+import '../screens/user/sign_up.dart';
+import '../services/user_service.dart';
 import 'home_admin.dart';
 import 'home_user.dart';
 
@@ -27,6 +27,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
   final myBox = Hive.box('myBox');
   late String storedToken;
   String serverMessage = '';
+  bool checkRemember = false;
 
   Future<void> clearHiveBox(String boxName) async {
     var box = await Hive.openBox(boxName);
@@ -72,8 +73,9 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
   Future<void> _initData() async {
     print("Amount of data is ${myBox.length}");
     storedToken = myBox.get('token', defaultValue: '');
+    checkRemember = myBox.get('remember', defaultValue: false);
     print('Stored Token: $storedToken');
-    if (storedToken != '') {
+    if (storedToken != '' && checkRemember) {
       await _decodeToken(storedToken);
     }
   }

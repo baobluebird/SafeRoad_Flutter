@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pothole/screens/sign_in.dart';
+import 'package:pothole/screens/user/sign_in.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../components/text_form_field.dart';
-import '../model/user.dart';
-import '../services/login_service.dart';
+import '../../components/text_form_field.dart';
+import '../../model/user.dart';
+import '../../services/user_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);

@@ -1,13 +1,14 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pothole/ipconfig/ip.dart';
-import 'package:pothole/screens/detection.dart';
+import 'package:pothole/screens/detection/detection.dart';
 import 'package:http/http.dart' as http;
-import '../model/detection.dart';
-import '../services/detection_service.dart';
+import '../../model/detection.dart';
+import '../../services/detection_service.dart';
 import 'package:intl/intl.dart';
 
 import 'detection_for_detail.dart';
+import 'edit_screen.dart';
 
 class CrackScreen extends StatefulWidget {
   const CrackScreen({Key? key}) : super(key: key);
@@ -147,31 +148,50 @@ class _CrackScreenState extends State<CrackScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        final confirmDelete = await showDialog<bool>(
-                          context: context,
-                          builder: (BuildContext context) => AlertDialog(
-                            title: const Text('Xác nhận xóa'),
-                            content: const Text('Bạn có chắc chắn muốn xóa vết nứt này không?'),
-                            actions: <Widget>[
-                              TextButton(
-                                child: const Text('Huỷ'),
-                                onPressed: () => Navigator.of(context).pop(false),
+                    Column(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditScreen(
+                                  item: crack,
+                                  type: 'crack',
+                                  onUpdate: _getListCracks, // Sửa callback
+                                ),
                               ),
-                              TextButton(
-                                child: const Text('Xoá'),
-                                onPressed: () => Navigator.of(context).pop(true),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            final confirmDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (BuildContext context) => AlertDialog(
+                                title: const Text('Xác nhận xóa'),
+                                content: const Text('Bạn có chắc chắn muốn xóa vết nứt này không?'),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: const Text('Huỷ'),
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                  ),
+                                  TextButton(
+                                    child: const Text('Xoá'),
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
+                            );
 
-                        if (confirmDelete == true) {
-                          _deleteCrack(crack['_id']);
-                        }
-                      },
+                            if (confirmDelete == true) {
+                              _deleteCrack(crack['_id']);
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

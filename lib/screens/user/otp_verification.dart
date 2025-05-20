@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pothole/screens/reset_password.dart';
-import '../services/login_service.dart';
+import 'package:pothole/screens/user/reset_password.dart';
+import '../../services/user_service.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String? email;

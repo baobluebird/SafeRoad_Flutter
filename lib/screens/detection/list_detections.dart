@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:pothole/screens/cracks.dart';
-import 'package:pothole/screens/holes.dart';
+import 'package:pothole/screens/detection/cracks.dart';
+import 'package:pothole/screens/detection/holes.dart';
 import 'dart:ui' as ui;
 
-import 'package:pothole/screens/road.dart';
+import 'package:pothole/screens/detection/road.dart';
 
 class ListDetectionScreen extends StatefulWidget {
   const ListDetectionScreen({Key? key}) : super(key: key);

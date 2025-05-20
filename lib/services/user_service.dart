@@ -91,7 +91,7 @@ class ForgotPasswordService {
     final Map<String, dynamic> requestBody = {
       "email": email,
     };
-
+    print(email);
     try {
       final response = await http.post(
         Uri.parse('$ip/code/create-code'),
@@ -257,19 +257,74 @@ class LogoutService {
 }
 
 class UpdateUserService {
-  static Future<Map<String, dynamic>> updateUser(String id, String name, File? image) async {
-
-    final url = Uri.parse('$ip/user/update-user/$id');
-    final request = http.MultipartRequest('POST', url);
-    request.files.add(await http.MultipartFile.fromPath('image', image!.path));
-    request.fields['name'] = name;
+  static Future<Map<String, dynamic>> updateUser(
+      String userID, String token, String name, String phone, String date,
+      {String? oldPassword, String? newPassword}) async {
+    final url = Uri.parse('$ip/user/update-user/$userID');
+    final body = {
+      if (name.isNotEmpty) 'name': name,
+      if (phone.isNotEmpty) 'phone': phone,
+      if (date.isNotEmpty) 'date': date,
+      if (oldPassword != null && oldPassword.isNotEmpty) 'oldPassword': oldPassword,
+      if (newPassword != null && newPassword.isNotEmpty) 'newPassword': newPassword,
+    };
 
     try {
-      final response = await request.send();
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'token': 'Bearer $token',
+        },
+        body: json.encode(body),
+      );
+
+      final decodedResponse = json.decode(response.body);
+
+      if (response.statusCode == 200 && decodedResponse['status'] == 'OK') {
+        return {'status': 'success', 'message': decodedResponse['message']};
+      } else {
+        return {'status': 'error', 'message': decodedResponse['message'] ?? 'Server error'};
+      }
+    } catch (error) {
+      print('Error: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
+class GetUserDetailService {
+  static Future<Map<String, dynamic>> getUserDetail(String id, String token) async {
+    final url = Uri.parse('$ip/user/get-detail/$id');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'token': 'Bearer $token', // Thêm header token
+          'Content-Type': 'application/json',
+        },
+      );
+
       if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final decodedResponse = json.decode(responseBody);
-        return {'status':decodedResponse['status'], 'message': decodedResponse['message']};
+        final responseBody = jsonDecode(response.body);
+        if (responseBody['status'] == 'OK') {
+          print('User details: ${responseBody['user']}');
+          return {
+            'status': 'success',
+            'user': responseBody['user'], // Trả về thông tin người dùng
+          };
+        } else {
+          return {
+            'status': 'error',
+            'message': responseBody['message'] ?? 'Failed to get user details',
+          };
+        }
+      } else if (response.statusCode == 404) {
+        final responseBody = jsonDecode(response.body);
+        return {
+          'status': 'error',
+          'message': responseBody['message'] ?? 'Unauthorized',
+        };
       } else {
         print('Error: ${response.statusCode}');
         return {'status': 'error', 'message': 'Server error'};
@@ -280,4 +335,3 @@ class UpdateUserService {
     }
   }
 }
-

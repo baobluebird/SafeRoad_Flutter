@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 
-import '../model/detection.dart';
-import '../page/home_admin.dart';
-import '../page/home_user.dart';
+import '../../model/detection.dart';
+import '../../page/home_admin.dart';
+import '../../page/home_user.dart';
 
 class DetectionScreen extends StatefulWidget {
   final Detection? detection;

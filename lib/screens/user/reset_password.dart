@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pothole/screens/sign_in.dart';
+import 'package:pothole/screens/user/sign_in.dart';
 
-import '../components/text_form_field.dart';
-import '../services/login_service.dart';
+import '../../components/text_form_field.dart';
+import '../../services/user_service.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String? userId;

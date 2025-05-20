@@ -8,15 +8,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocode/geocode.dart';
 import 'package:path_provider/path_provider.dart';
-import '../components/list.dart';
-import '../model/detection.dart';
-import '../services/upload_service.dart';
+import '../../components/list.dart';
+import '../../model/detection.dart';
+import '../../services/upload_service.dart';
 import 'detection.dart';
 import 'package:image/image.dart' as Img;
-
-const styleUrl =
-    "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
-const apiKey = "bcc0c4b5-37fb-4c61-a683-34ce8700b556";
 
 class SendScreen extends StatefulWidget {
   final List<CameraDescription>? cameras;

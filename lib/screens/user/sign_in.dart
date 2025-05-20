@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
-import 'package:pothole/screens/sign_up.dart';
+import 'package:pothole/screens/user/sign_up.dart';
 
-import '../components/text_form_field.dart';
-import '../page/home_admin.dart';
-import '../page/home_user.dart';
-import '../services/login_service.dart';
-import '../utils/snack_bar.dart';
+import '../../components/text_form_field.dart';
+import '../../page/home_admin.dart';
+import '../../page/home_user.dart';
+import '../../services/user_service.dart';
+import '../../utils/snack_bar.dart';
 import 'forgot_password.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -55,7 +55,6 @@ class _SigninScreenState extends State<SigninScreen> {
 
         if (response['status'] == "OK") {
           final String accessToken = response['access_token'];
-
           await myBox.put('userId', response['userId']);
           await myBox.put('name', response['name']);
           await myBox.put('isAdmin', response['isAdmin'] ?? false);
@@ -115,6 +114,7 @@ class _SigninScreenState extends State<SigninScreen> {
           token = response['access_token'];
           await myBox.put('userId', response['userId']);
           await myBox.put('name', response['name']);
+          await myBox.put('token', token);
           final Map<String, dynamic> responseToken =
               await DecodeTokenService.decodeToken(token);
           if (responseToken['status'] == "OK") {
@@ -160,7 +160,7 @@ class _SigninScreenState extends State<SigninScreen> {
   }
 
   Future<void> remember() async {
-    await myBox.put('token', token);
+    await myBox.put('remember', checkTheBox);
   }
 
   bool showPass = true;

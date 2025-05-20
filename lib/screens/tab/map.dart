@@ -7,12 +7,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pothole/ipconfig/ip.dart';
-import 'package:pothole/screens/send.dart';
+import 'package:pothole/screens/detection/send_detection.dart';
 import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/detection_service.dart';
+import '../../services/detection_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -262,7 +262,7 @@ class MapScreenState extends State<MapScreen> {
               icon: _maintainIcon,
               infoWindow: InfoWindow(
                 title: 'Date maintain: ${date}d',
-                snippet: '${DateFormat('yyyy/MM/dd ').format(DateTime.parse(createdAt))} - ${DateFormat('yyyy/MM/dd ').format(DateTime.parse(updatedAt))}',
+                snippet: '${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(createdAt))} - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(updatedAt))}',
               ),
             ),
           );
@@ -278,7 +278,7 @@ class MapScreenState extends State<MapScreen> {
 
 
   Future<void> _fetchAndDrawRoutes() async {
-    final response = await getListMaintainService.getListMaintain();
+    final response = await getListMaintainForMapService.getListMaintainForMap();
 
     if (!mounted) return;
 
@@ -393,7 +393,7 @@ class MapScreenState extends State<MapScreen> {
             bottom: 130.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag1',
+              heroTag: 'Send Report Map',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
@@ -411,7 +411,7 @@ class MapScreenState extends State<MapScreen> {
             bottom: 85.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag2',
+              heroTag: 'Show My Location Map',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
@@ -425,7 +425,7 @@ class MapScreenState extends State<MapScreen> {
             bottom: 175.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag3',
+              heroTag: 'Reload Data Map',
               mini: true,
               shape: const CircleBorder(),
               backgroundColor: Color(0xFFFFFFFF),

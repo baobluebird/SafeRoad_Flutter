@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pothole/screens/sign_up.dart';
+import 'package:pothole/screens/user/sign_up.dart';
 
-import '../services/login_service.dart';
+import '../../services/user_service.dart';
 import 'otp_verification.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pothole/page/login.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await openHiveBox('mybox');
@@ -13,6 +13,8 @@ Future<void> main() async {
 Future<void> openHiveBox(String boxName) async {
   if (!kIsWeb && !Hive.isBoxOpen(boxName))
     Hive.init((await getApplicationDocumentsDirectory()).path);
+  await Hive.initFlutter();
+
   await Hive.openBox(boxName);
 }
 

@@ -4,7 +4,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pothole/ipconfig/ip.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:pothole/screens/road_detail.dart';
+import 'package:pothole/screens/detection/road_detail.dart';
+
+import 'edit_screen.dart';
 
 class MaintainRoadScreen extends StatefulWidget {
   const MaintainRoadScreen({Key? key}) : super(key: key);
@@ -17,7 +19,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
   List<dynamic>? _maintainRoads;
   int _total = 0;
 
-  Future<void> _fetchData() async {
+  Future<void> _getListMaintainRoad() async {
     var url = Uri.parse('$ip/detection/get-maintain-road');
     var response = await http.get(url);
 
@@ -62,7 +64,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _getListMaintainRoad();
   }
 
   @override
@@ -73,7 +75,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
           : _maintainRoads!.isEmpty
           ? const Center(child: Text('No maintain roads available'))
           : RefreshIndicator(
-        onRefresh: _fetchData,
+        onRefresh: _getListMaintainRoad,
         child: ListView.builder(
           itemCount: _maintainRoads!.length,
           itemBuilder: (BuildContext context, int index) {
@@ -122,31 +124,50 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        final confirmDelete = await showDialog<bool>(
-                          context: context,
-                          builder: (BuildContext context) => AlertDialog(
-                            title: const Text('Xác nhận xóa'),
-                            content: const Text('Bạn có chắc chắn muốn xóa bảo trì này không?'),
-                            actions: <Widget>[
-                              TextButton(
-                                child: const Text('Huỷ'),
-                                onPressed: () => Navigator.of(context).pop(false),
+                    Column(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditScreen(
+                                  item: road,
+                                  type: 'maintain',
+                                  onUpdate: _getListMaintainRoad,
+                                ),
                               ),
-                              TextButton(
-                                child: const Text('Xoá'),
-                                onPressed: () => Navigator.of(context).pop(true),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            final confirmDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (BuildContext context) => AlertDialog(
+                                title: const Text('Xác nhận xóa'),
+                                content: const Text('Bạn có chắc chắn muốn xóa bảo trì này không?'),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: const Text('Huỷ'),
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                  ),
+                                  TextButton(
+                                    child: const Text('Xoá'),
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
+                            );
 
-                        if (confirmDelete == true) {
-                          _deleteMaintainRoad(road['_id']);
-                        }
-                      },
+                            if (confirmDelete == true) {
+                              _deleteMaintainRoad(road['_id']);
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

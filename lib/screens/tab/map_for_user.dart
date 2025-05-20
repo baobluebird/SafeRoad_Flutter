@@ -11,8 +11,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pothole/ipconfig/ip.dart';
-import 'package:pothole/screens/send.dart';
-import '../services/detection_service.dart';
+import 'package:pothole/screens/detection/send_detection.dart';
+import '../../services/detection_service.dart';
 
 class MapUserScreen extends StatefulWidget {
   const MapUserScreen({Key? key}) : super(key: key);
@@ -274,7 +274,7 @@ class MapUserScreenState extends State<MapUserScreen> {
             bottom: 130.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'sendBtn',
+              heroTag: 'SendScreen',
               backgroundColor: Colors.white,
               mini: true,
               shape: const CircleBorder(),

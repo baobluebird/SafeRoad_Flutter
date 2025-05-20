@@ -7,7 +7,7 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
-import '../ipconfig/ip.dart';
+import '../../ipconfig/ip.dart';
 
 class MaintainRoadDetailScreen extends StatefulWidget {
   final String sourceName;
@@ -110,13 +110,19 @@ class _MaintainRoadDetailScreenState extends State<MaintainRoadDetailScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(5.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Source: ${widget.sourceName}'),
                 Text('Destination: ${widget.destinationName}'),
-                Text('Date Maintain: ${widget.dateMaintain} days (${DateFormat('yyyy/MM/dd ').format(DateTime.parse(widget.startDate))} - ${DateFormat('yyyy/MM/dd').format(DateTime.parse(widget.endDate))})'),
+                Text(
+                  'Start Date: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(widget.startDate))}',
+                ),
+                Text(
+                  'End Date: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(widget.endDate))}',
+                ),
+                Text('Date Maintain: ${widget.dateMaintain} days'),
               ],
             ),
           ),

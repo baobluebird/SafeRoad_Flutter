@@ -11,7 +11,6 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:pothole/ipconfig/ip.dart';
 import 'dart:ui' as ui;
-
 import 'package:vibration/vibration.dart';
 
 class TrackingMapScreen extends StatefulWidget {
@@ -21,7 +20,7 @@ class TrackingMapScreen extends StatefulWidget {
 
 class _TrackingMapScreenState extends State<TrackingMapScreen> {
   final Completer<GoogleMapController> _controller =
-  Completer<GoogleMapController>();
+      Completer<GoogleMapController>();
   late Position _currentPosition;
   List<dynamic> largeHoles = [];
   List<dynamic> maintainRoad = [];
@@ -37,17 +36,30 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   late BitmapDescriptor _largeHoleIcon;
   late BitmapDescriptor _maintainRoadIcon;
   bool _isWarningDisplayed = false;
-  Map<int, Set<String>> _holeWarnings =
-  {};
+  Map<int, Set<String>> _holeWarnings = {};
   final AudioPlayer _audioPlayer = AudioPlayer();
-  double?
-  _currentDistance;
+  double? _currentDistance;
   final myBox = Hive.box('myBox');
   String _idUser = '';
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(16.0736, 108.1499),
     zoom: 14.4746,
   );
+
+  void _clearSearch() {
+    setState(() {
+      _destinationController.clear();
+      _selectedPosition = null;
+      _polylines.clear();
+      _markers.removeWhere((marker) => marker.markerId.value == 'selectedLocation');
+      _sessionToken = '';
+      _currentDistance = 0;
+      largeHoles = [];
+      maintainRoad = [];
+      _holeWarnings.clear();
+    });
+    FocusScope.of(context).unfocus(); // Ẩn bàn phím
+  }
 
   Future<void> _triggerAlert() async {
     if (await Vibration.hasVibrator() ?? false) {
@@ -82,12 +94,18 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   }
 
   Future<void> _loadCustomIcons() async {
-    final Uint8List location =
-    await getBytesFromAsset('assets/images/car.png', 160);
-    final Uint8List maintain =
-    await getBytesFromAsset('assets/images/fix_road.png', 160);
-    final Uint8List largeHole =
-    await getBytesFromAsset('assets/images/large_hole.png', 130);
+    final Uint8List location = await getBytesFromAsset(
+      'assets/images/car.png',
+      160,
+    );
+    final Uint8List maintain = await getBytesFromAsset(
+      'assets/images/fix_road.png',
+      160,
+    );
+    final Uint8List largeHole = await getBytesFromAsset(
+      'assets/images/large_hole.png',
+      130,
+    );
 
     if (mounted) {
       setState(() {
@@ -100,12 +118,14 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
     ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(),
-        targetWidth: width);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: width,
+    );
     ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
+    return (await fi.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!.buffer.asUint8List();
   }
 
   @override
@@ -139,15 +159,21 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
     if (_isMounted) {
       setState(() {
         _markers.removeWhere(
-                (marker) => marker.markerId.value.contains('largeHole') ||
-                marker.markerId.value.contains('maintainRoad'));
-        _markers.add(Marker(
-          markerId: MarkerId('currentLocation'),
-          position:
-          LatLng(_currentPosition.latitude, _currentPosition.longitude),
-          infoWindow: InfoWindow(title: 'Current Location'),
-          icon: _userIcon,
-        ));
+          (marker) =>
+              marker.markerId.value.contains('largeHole') ||
+              marker.markerId.value.contains('maintainRoad'),
+        );
+        _markers.add(
+          Marker(
+            markerId: MarkerId('currentLocation'),
+            position: LatLng(
+              _currentPosition.latitude,
+              _currentPosition.longitude,
+            ),
+            infoWindow: InfoWindow(title: 'Current Location'),
+            icon: _userIcon,
+          ),
+        );
 
         int largeHoleIndex = 0;
         for (var item in largeHoles) {
@@ -155,8 +181,10 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             Marker(
               markerId: MarkerId('largeHole$largeHoleIndex'),
               position: LatLng(item[0], item[1]),
-              infoWindow:
-              InfoWindow(title: 'Large Hole', snippet: 'Be cautious!'),
+              infoWindow: InfoWindow(
+                title: 'Large Hole',
+                snippet: 'Be cautious!',
+              ),
               icon: _largeHoleIcon,
             ),
           );
@@ -168,19 +196,23 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             Marker(
               markerId: MarkerId('maintainRoad$maintainRoadIndex'),
               position: LatLng(item[0], item[1]),
-              infoWindow:
-              InfoWindow(title: 'Maintain Road', snippet: 'Be cautious!'),
+              infoWindow: InfoWindow(
+                title: 'Maintain Road',
+                snippet: 'Be cautious!',
+              ),
               icon: _maintainRoadIcon,
             ),
           );
           maintainRoadIndex++;
         }
         if (_selectedPosition != null) {
-          _markers.add(Marker(
-            markerId: MarkerId('selectedLocation'),
-            position: _selectedPosition!,
-            infoWindow: InfoWindow(title: 'Selected Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('selectedLocation'),
+              position: _selectedPosition!,
+              infoWindow: InfoWindow(title: 'Selected Location'),
+            ),
+          );
         }
       });
     }
@@ -188,24 +220,31 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
 
   void _getCurrentLocation() async {
     Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
+      desiredAccuracy: LocationAccuracy.high,
+    );
     if (!_isMounted) return;
     if (_isMounted) {
       setState(() {
         _currentPosition = position;
-        _markers.add(Marker(
-          markerId: MarkerId('currentLocation'),
-          position: LatLng(position.latitude, position.longitude),
-          infoWindow: InfoWindow(title: 'Current Location'),
-          icon: _userIcon,
-        ));
+        _markers.add(
+          Marker(
+            markerId: MarkerId('currentLocation'),
+            position: LatLng(position.latitude, position.longitude),
+            infoWindow: InfoWindow(title: 'Current Location'),
+            icon: _userIcon,
+          ),
+        );
       });
     }
     final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-          target: LatLng(position.latitude, position.longitude), zoom: 16.0),
-    ));
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(position.latitude, position.longitude),
+          zoom: 16.0,
+        ),
+      ),
+    );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: LocationSettings(
@@ -217,12 +256,14 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         setState(() {
           _currentPosition = position;
           _markers.removeWhere((m) => m.markerId.value == 'currentLocation');
-          _markers.add(Marker(
-            markerId: MarkerId('currentLocation'),
-            position: LatLng(position.latitude, position.longitude),
-            infoWindow: InfoWindow(title: 'Current Location'),
-            icon: _userIcon,
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('currentLocation'),
+              position: LatLng(position.latitude, position.longitude),
+              infoWindow: InfoWindow(title: 'Current Location'),
+              icon: _userIcon,
+            ),
+          );
         });
         _updateCameraPosition(position);
         _checkProximityToLargeHoles();
@@ -232,10 +273,14 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
 
   Future<void> _updateCameraPosition(Position position) async {
     final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-          target: LatLng(position.latitude, position.longitude), zoom: 18.0),
-    ));
+    controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(position.latitude, position.longitude),
+          zoom: 18.0,
+        ),
+      ),
+    );
   }
 
   void _checkProximityToLargeHoles() async {
@@ -259,7 +304,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _triggerAlert();
         _isWarningDisplayed = true; // Set the warning displayed flag to true
         await _showWarningDialog(
-            'You are within 10 meters of a large hole!', 3);
+          'You are within 10 meters of a large hole!',
+          3,
+        );
         _markWarningAsShown(_currentHoleIndex, '10m');
         if (_currentHoleIndex < largeHoles.length - 1) {
           var nextHole = largeHoles[_currentHoleIndex + 1];
@@ -274,7 +321,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             _triggerAlert4();
             _isWarningDisplayed = true;
             await _showWarningDialog(
-                'Another hole in the front, be careful!', 3);
+              'Another hole in the front, be careful!',
+              3,
+            );
             _currentHoleIndex++;
             _isWarningDisplayed = false;
           }
@@ -288,7 +337,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _isWarningDisplayed = true;
         _triggerAlert2();
         await _showWarningDialog(
-            'You are within 50 meters of a large hole!', 3);
+          'You are within 50 meters of a large hole!',
+          3,
+        );
         _markWarningAsShown(_currentHoleIndex, '50m');
         _isWarningDisplayed = false;
         _stopAlert();
@@ -298,7 +349,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _triggerAlert3();
         _isWarningDisplayed = true;
         await _showWarningDialog(
-            'You are within 100 meters of a large hole!', 3);
+          'You are within 100 meters of a large hole!',
+          3,
+        );
         _markWarningAsShown(_currentHoleIndex, '100m');
         _isWarningDisplayed = false;
         _stopAlert();
@@ -322,10 +375,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           }
         });
 
-        return AlertDialog(
-          title: Text('Warning'),
-          content: Text(message),
-        );
+        return AlertDialog(title: Text('Warning'), content: Text(message));
       },
     );
   }
@@ -342,31 +392,40 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   }
 
   Future<void> _drawRoute(LatLng destination) async {
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json?origin=${_currentPosition.latitude},${_currentPosition.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${_currentPosition.latitude},${_currentPosition.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key',
+      ),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final points = PolylinePoints()
-          .decodePolyline(data['routes'][0]['overview_polyline']['points']);
+      final points = PolylinePoints().decodePolyline(
+        data['routes'][0]['overview_polyline']['points'],
+      );
       if (!_isMounted) return;
       if (_isMounted) {
         setState(() {
-          _polylines.add(Polyline(
-            polylineId: PolylineId('route'),
-            points: points
-                .map((point) => LatLng(point.latitude, point.longitude))
-                .toList(),
-            color: Colors.blue,
-            width: 5,
-          ));
+          _polylines.add(
+            Polyline(
+              polylineId: PolylineId('route'),
+              points:
+                  points
+                      .map((point) => LatLng(point.latitude, point.longitude))
+                      .toList(),
+              color: Colors.blue,
+              width: 5,
+            ),
+          );
         });
       }
       // Print the coordinates of the route and upload them to the server
       List<Map<String, double>> coordinates = [];
       points.forEach((point) {
-        coordinates
-            .add({'latitude': point.latitude, 'longitude': point.longitude});
+        coordinates.add({
+          'latitude': point.latitude,
+          'longitude': point.longitude,
+        });
         print('Coordinate: ${point.latitude}, ${point.longitude}');
       });
       await _uploadCoordinates(coordinates);
@@ -377,10 +436,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
 
   Future<void> _sendHelp() async {
     _idUser = myBox.get('userId', defaultValue: '');
-    String location = '(${_currentPosition.latitude}, ${_currentPosition.longitude})';
-    final Map<String, dynamic> requestBody = {
-      "location": location,
-    };
+    String location =
+        '(${_currentPosition.latitude}, ${_currentPosition.longitude})';
+    final Map<String, dynamic> requestBody = {"location": location};
     try {
       final response = await http.post(
         Uri.parse('$ip/user/send-help/$_idUser'),
@@ -416,7 +474,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Cảnh báo'),
-          content: Text('Đoạn đường bạn đi đang được bảo trì, bạn có muốn tiếp tục không?'),
+          content: Text(
+            'Đoạn đường bạn đi đang được bảo trì, bạn có muốn tiếp tục không?',
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -447,10 +507,9 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
     if (response.statusCode == 200) {
       print('Response: ${response.body}');
 
-      List<dynamic> Hole =
-      jsonDecode(response.body)['matchingCoordinatesHole'];
+      List<dynamic> Hole = jsonDecode(response.body)['matchingCoordinatesHole'];
       List<dynamic> MaintainRoad =
-      jsonDecode(response.body)['matchingCoordinatesMaintainRoad'];
+          jsonDecode(response.body)['matchingCoordinatesMaintainRoad'];
 
       if (_isMounted) {
         setState(() {
@@ -464,7 +523,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       if (maintainRoad.isNotEmpty) {
         _showMaintenanceWarningDialog();
       }
-      if (largeHoles.isEmpty ){
+      if (largeHoles.isEmpty) {
         if (_isMounted) {
           setState(() {
             _currentDistance = 0;
@@ -485,7 +544,6 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         }
       }
 
-
       print('Coordinates uploaded successfully');
       print('Matching Coordinates: $largeHoles');
     } else {
@@ -494,8 +552,11 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   }
 
   Future<void> _searchDestination(String address) async {
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json?address=$address&key=$api_key'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json?address=$address&key=$api_key',
+      ),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -506,11 +567,13 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       if (_isMounted) {
         setState(() {
           _selectedPosition = destination;
-          _markers.add(Marker(
-            markerId: MarkerId('selectedLocation'),
-            position: destination,
-            infoWindow: InfoWindow(title: 'Selected Location'),
-          ));
+          _markers.add(
+            Marker(
+              markerId: MarkerId('selectedLocation'),
+              position: destination,
+              infoWindow: InfoWindow(title: 'Selected Location'),
+            ),
+          );
         });
       }
       _drawRoute(destination);
@@ -524,8 +587,11 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       return [];
     }
 
-    final response = await http.get(Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$api_key&sessiontoken=$_sessionToken'));
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$api_key&sessiontoken=$_sessionToken',
+      ),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -540,11 +606,13 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
     if (_isMounted) {
       setState(() {
         _selectedPosition = position;
-        _markers.add(Marker(
-          markerId: MarkerId('selectedLocation'),
-          position: position,
-          infoWindow: InfoWindow(title: 'Selected Location'),
-        ));
+        _markers.add(
+          Marker(
+            markerId: MarkerId('selectedLocation'),
+            position: position,
+            infoWindow: InfoWindow(title: 'Selected Location'),
+          ),
+        );
       });
     }
     _drawRoute(position);
@@ -553,10 +621,12 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   void _clearTrack() {
     if (_isMounted) {
       setState(() {
-        _markers.removeWhere((marker) =>
-        marker.markerId.value.contains('largeHole') ||
-            marker.markerId.value.contains('maintainRoad') ||
-            marker.markerId.value == 'selectedLocation');
+        _markers.removeWhere(
+          (marker) =>
+              marker.markerId.value.contains('largeHole') ||
+              marker.markerId.value.contains('maintainRoad') ||
+              marker.markerId.value == 'selectedLocation',
+        );
         _polylines.clear();
         _selectedPosition = null;
         _currentHoleIndex = 0;
@@ -607,7 +677,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
                         onSelected: (suggestion) {
                           _destinationController.text = suggestion;
                           _searchDestination(suggestion);
-                          FocusScope.of(context).unfocus(); // Ẩn bàn phím sau khi chọn
+                          FocusScope.of(context).unfocus();
                         },
                         controller: _destinationController,
                         builder: (context, controller, focusNode) {
@@ -615,19 +685,37 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
                             controller: controller,
                             focusNode: focusNode,
                             decoration: InputDecoration(
-                              hintText: 'Enter destination',
+                              hintText: 'Nhập điểm đến',
                               border: OutlineInputBorder(),
                               filled: true,
                               fillColor: Colors.white,
                             ),
                           );
                         },
-                      )
+                        emptyBuilder: (context) => Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Không tìm thấy kết quả!',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.search),
-                      onPressed: () {
-                        _searchDestination(_destinationController.text);
+                    ValueListenableBuilder(
+                      valueListenable: _destinationController,
+                      builder: (context, value, child) {
+                        return value.text.isNotEmpty
+                            ? IconButton(
+                          icon: Icon(Icons.cancel),
+                          onPressed: _clearSearch,
+                          tooltip: 'Hủy tìm kiếm',
+                        )
+                            : IconButton(
+                          icon: Icon(Icons.search),
+                          onPressed: () {
+                            _searchDestination(_destinationController.text);
+                          },
+                        );
                       },
                     ),
                   ],
@@ -647,7 +735,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
                       ],
                     ),
                     child: Text(
-                      'Distance to nearest large hole: ${_currentDistance!.toStringAsFixed(2)} meters',
+                      'Khoảng cách đến ổ gà gần nhất: ${_currentDistance!.toStringAsFixed(2)} mét',
                       style: TextStyle(fontSize: 16.0),
                     ),
                   ),
@@ -658,26 +746,25 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             bottom: 85.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag2',
+              heroTag: 'tracking-location',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
               onPressed: _getCurrentLocation,
-              tooltip: 'Show My Location',
-              child:
-              Image.asset('assets/images/car.png', width: 30, height: 30),
+              tooltip: 'Hiển thị vị trí của tôi',
+              child: Image.asset('assets/images/car.png', width: 30, height: 30),
             ),
           ),
           Positioned(
             bottom: 130.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag3',
+              heroTag: 'tracking-clear',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
               onPressed: _clearTrack,
-              tooltip: 'Clear Track',
+              tooltip: 'Xóa lộ trình',
               child: const Icon(Icons.clear),
             ),
           ),
@@ -685,12 +772,12 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             bottom: 175.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag4',
+              heroTag: 'tracking-help',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
               onPressed: () => _sendHelp(),
-              tooltip: 'Send Help',
+              tooltip: 'Gửi trợ giúp',
               child: const Icon(Icons.health_and_safety),
             ),
           ),

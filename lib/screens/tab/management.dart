@@ -7,14 +7,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pothole/ipconfig/ip.dart';
-import 'package:pothole/screens/road_detail.dart';
+import 'package:pothole/screens/detection/road_detail.dart';
 import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
-import '../model/detection.dart';
-import '../services/detection_service.dart';
-import 'detection_for_detail.dart';
+import '../../model/detection.dart';
+import '../../services/detection_service.dart';
+import '../detection/detection_for_detail.dart';
+import '../detection/edit_screen.dart';
 
 class ManagementScreen extends StatefulWidget {
   const ManagementScreen({super.key});
@@ -666,6 +667,27 @@ class _ManagementScreenState extends State<ManagementScreen> {
                                       width: 10,
                                     ),
                                     IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditScreen(
+                                              item: item,
+                                              type: 'hole',
+                                              onUpdate: (){
+                                                Navigator.of(context).pop();
+                                                _updateMarkers();
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(
+                                      width: 10,
+                                    ),
+                                    IconButton(
                                         onPressed: () {
                                           _getDetailHole(item['_id']);
                                         },
@@ -765,6 +787,27 @@ class _ManagementScreenState extends State<ManagementScreen> {
                                       width: 10,
                                     ),
                                     IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditScreen(
+                                              item: item,
+                                              type: 'crack',
+                                              onUpdate: (){
+                                                Navigator.of(context).pop();
+                                                _updateMarkers();
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(
+                                      width: 10,
+                                    ),
+                                    IconButton(
                                         onPressed: () {
                                           _getDetailCrack(item['_id']);
                                         },
@@ -803,7 +846,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                   color: Colors.blue,
                 ),
                 child: Text(
-                  'Danh sách đoạn đường bảo trì: $_totalMaintain',
+                  'Danh sách bảo trì: $_totalMaintain',
                   style: GoogleFonts.beVietnamPro(
                     textStyle: const TextStyle(
                       fontSize: 23,
@@ -866,14 +909,24 @@ class _ManagementScreenState extends State<ManagementScreen> {
                                       icon:
                                           Icon(Icons.delete, color: Colors.red),
                                     ),
-                                    // IconButton(
-                                    //   onPressed: () {
-                                    //     Navigator.of(context).pop();
-                                    //     _drawRoute(_parseLatLng(item['locationA']));
-                                    //   },
-                                    //   icon:
-                                    //   Icon(Icons.location_on, color: Colors.blueAccent),
-                                    // ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditScreen(
+                                              item: item,
+                                              type: 'maintain',
+                                              onUpdate: (){
+                                                Navigator.of(context).pop();
+                                                _updateMarkers();
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                     IconButton(
                                         onPressed: () {
                                           Navigator.push(
@@ -953,7 +1006,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             bottom: 265.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag5',
+              heroTag: 'Reload Data Management',
               mini: true,
               shape: const CircleBorder(),
               backgroundColor: Color(0xFFFFFFFF),
@@ -966,7 +1019,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             bottom: 220.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag4',
+              heroTag: 'List Maintain Management',
               mini: true,
               shape: const CircleBorder(),
               backgroundColor: Color(0xFFFFFFFF),
@@ -982,7 +1035,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             bottom: 175.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag3',
+              heroTag: 'List Crack Management',
               mini: true,
               shape: const CircleBorder(),
               backgroundColor: Color(0xFFFFFFFF),
@@ -998,7 +1051,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             bottom: 130.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag2',
+              heroTag: 'List Hole Management',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
@@ -1014,7 +1067,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
             bottom: 85.0,
             right: -4,
             child: FloatingActionButton(
-              heroTag: 'uniqueTag1',
+              heroTag: 'Show My Location Management',
               backgroundColor: Color(0xFFFFFFFF),
               mini: true,
               shape: const CircleBorder(),
