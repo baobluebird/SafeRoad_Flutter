@@ -186,6 +186,31 @@ class getListMaintainForMapService {
   }
 }
 
+class getListDamageForMapService {
+  static Future<Map<String, dynamic>> getListDamageForMap() async {
+    try {
+      final response = await http.get(Uri.parse('$ip/detection/get-damage-road'));
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded.containsKey('data')) {
+          return {
+            'status': 'OK',
+            'data': decoded['data'],
+          };
+        } else {
+          return {'status': 'error', 'message': 'Invalid format'};
+        }
+      } else {
+        return {'status': 'error', 'message': 'Non-200 status code'};
+      }
+    } catch (e) {
+      print('Error fetching maintain data: $e');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
 class deleteDetectionService {
   static Future<Map<String, dynamic>> deleteDetection(String detectionId, String nameList) async {
     try {
@@ -194,6 +219,8 @@ class deleteDetectionService {
         url = '$ip/detection/delete-hole/$detectionId';
       } else if (nameList == 'Crack') {
         url = '$ip/detection/delete-crack/$detectionId';
+      }else if (nameList == 'Damage') {
+        url = '$ip/detection/delete-damage/$detectionId';
       } else {
         url = '$ip/detection/delete-maintain/$detectionId';
       }
@@ -248,7 +275,7 @@ class UpdateHoleService {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('$ip/detection/update-holes/$id'),
+        Uri.parse('$ip/detection/update-hole/$id'),
       );
 
       // Add form fields
@@ -396,4 +423,51 @@ class UpdateMaintainService {
   }
 }
 
+class UpdateDamageService {
+  static Future<Map<String, dynamic>> updateDamage({
+    required String id,
+    required String name,
+    required String sourceName,
+    required String destinationName,
+    required String locationA,
+    required String locationB,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$ip/detection/update-damage/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'name': name,
+          'sourceName': sourceName,
+          'destinationName': destinationName,
+          'locationA': locationA,
+          'locationB': locationB,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final decodedResponse = json.decode(response.body);
+        if (decodedResponse.containsKey('status') &&
+            decodedResponse.containsKey('message')) {
+          return {
+            'status': decodedResponse['status'],
+            'message': decodedResponse['message'],
+          };
+        } else {
+          return {'status': 'error', 'message': 'Unexpected response format'};
+        }
+      } else {
+        return {
+          'status': 'error',
+          'message': 'Failed with status ${response.statusCode}',
+        };
+      }
+    } catch (error) {
+      print('Error updating maintain road: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
 

@@ -7,6 +7,9 @@ import 'package:pothole/screens/detection/holes.dart';
 import 'dart:ui' as ui;
 
 import 'package:pothole/screens/detection/road.dart';
+import 'package:pothole/screens/detection/search.dart';
+
+import 'damage.dart';
 
 class ListDetectionScreen extends StatefulWidget {
   const ListDetectionScreen({Key? key}) : super(key: key);
@@ -20,6 +23,7 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
   late Image _largeHoleIcon;
   late Image _largeCrackIcon;
   late Image _maintainIcon;
+  late Image _damageIcon;
   bool _isLoading = true;
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
@@ -33,10 +37,12 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
     final Uint8List largeHole = await getBytesFromAsset('assets/images/large_hole.png', 40);
     final Uint8List largeCrack = await getBytesFromAsset('assets/images/large_crack.png', 35);
     final Uint8List maintain = await getBytesFromAsset('assets/images/fix_road.png', 35);
+    final Uint8List damage = await getBytesFromAsset('assets/images/damage.png', 35);
     setState(() {
       _largeHoleIcon = Image.memory(largeHole);
       _largeCrackIcon = Image.memory(largeCrack);
       _maintainIcon = Image.memory(maintain);
+      _damageIcon = Image.memory(damage);
     });
   }
 
@@ -50,7 +56,7 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
     await Future.wait([
       _loadCustomIcons(),
       Future(() {
-        _tabController = TabController(length: 3, vsync: this);
+        _tabController = TabController(length: 5, vsync: this);
       }),
     ]);
     setState(() {
@@ -72,6 +78,7 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
           : DefaultTabController(
         length: 2,
         child: Column(
+
           children: [
             TabBar(
               controller: _tabController,
@@ -79,6 +86,8 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
                 Tab(icon: _largeHoleIcon, text: 'Ổ gà'),
                 Tab(icon: _largeCrackIcon, text: 'Vết Nứt'),
                 Tab(icon: _maintainIcon, text: 'Bảo trì'),
+                Tab(icon: _damageIcon, text: 'Damage'),
+                Tab(icon: const Icon(Icons.search), text: 'Search'),
               ],
             ),
             Expanded(
@@ -88,9 +97,11 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
                   HolesScreen(),
                   CrackScreen(),
                   MaintainRoadScreen(),
+                  DamageRoadScreen(),
+                  SearchScreen()
                 ],
               ),
-            ),
+            )
           ],
         ),
       ),

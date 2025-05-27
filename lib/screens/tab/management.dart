@@ -11,9 +11,11 @@ import 'package:pothole/screens/detection/road_detail.dart';
 import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../../model/detection.dart';
 import '../../services/detection_service.dart';
+import '../detection/damage_detail.dart';
 import '../detection/detection_for_detail.dart';
 import '../detection/edit_screen.dart';
 
@@ -37,12 +39,14 @@ class _ManagementScreenState extends State<ManagementScreen> {
   late BitmapDescriptor _smallCrackIcon;
   late BitmapDescriptor _largeCrackIcon;
   late BitmapDescriptor _maintainIcon;
+  late BitmapDescriptor _damageIcon;
 
   late Detection? detection;
 
   List<dynamic>? _listHole;
   List<dynamic>? _listCrack;
   List<dynamic>? _listMaintain;
+  List<dynamic>? _listDamage;
 
   // List<dynamic> smallHoles = [];
   // List<dynamic> largeHoles = [];
@@ -55,6 +59,9 @@ class _ManagementScreenState extends State<ManagementScreen> {
   int _totalHole = 0;
   int _totalCrack = 0;
   int _totalMaintain = 0;
+  int _totalDamage = 0;
+
+  late IO.Socket socket;
 
   bool _iconsLoaded = false;
 
@@ -66,15 +73,196 @@ class _ManagementScreenState extends State<ManagementScreen> {
   @override
   void initState() {
     super.initState();
+
+    socket = IO.io(socketIp, <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': false,
+    });
+
+    socket.connect();
+
+    socket.onConnect((_) {
+      print('Connected to server');
+    });
+
+    socket.onDisconnect((_) {
+      print('Disconnected from server');
+    });
+
+    socket.on('newDamageRoad', (data) {
+      print('New damage road received: $data');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('New damage road added: ${data['name']}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1)
+        ),
+      );
+      if (data != null && data is Map<String, dynamic>) {
+        setState(() {
+          // Add the new damage to the _listDamage
+          _listDamage ??= [];
+          _listDamage!.add({
+            '_id': data['id'],
+            'name': data['name'],
+            'sourceName': data['sourceName'],
+            'destinationName': data['destinationName'],
+            'locationA': data['locationA'],
+            'locationB': data['locationB'],
+            'createdAt': data['createdAt'],
+            'updatedAt': data['updatedAt'],
+          });
+          _totalDamage = _listDamage!.length;
+        });
+
+        // Draw the new damage route on the map
+        final locationA = _parseLatLng(data['locationA']);
+        final locationB = _parseLatLng(data['locationB']);
+        if (locationA != null && locationB != null) {
+          _drawRouteDamageFormap(
+            data['name'],
+            data['sourceName'],
+            data['destinationName'],
+            locationA,
+            locationB,
+            data['createdAt'],
+          );
+        }
+      }
+    });
+
+    socket.on('newDataAdded', (data) {
+      print('New detection received: $data');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('New detection added: ${data['name']}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1)
+        ),
+      );
+      if (data != null && data is Map<String, dynamic>) {
+        setState(() {
+          if (data['name'] == 'Ổ gà') {
+            _listHole ??= [];
+            _listHole!.add({
+              '_id': data['_id'],
+              'name': data['name'],
+              'location': data['location'],
+              'address': data['address'],
+              'description': data['description'],
+              'image': data['image'],
+              'createdAt': data['createdAt'],
+              'updatedAt': data['updatedAt'],
+            });
+            _totalHole = _listHole!.length;
+            holes = _listHole!;
+          } else if (data['name'] == 'Vết nứt') {
+            _listCrack ??= [];
+            _listCrack!.add({
+              '_id': data['_id'],
+              'name': data['name'],
+              'location': data['location'],
+              'address': data['address'],
+              'description': data['description'],
+              'image': data['image'],
+              'createdAt': data['createdAt'],
+              'updatedAt': data['updatedAt'],
+            });
+            _totalCrack = _listCrack!.length;
+            cracks = _listCrack!;
+          }
+        });
+
+        // Add marker for the new detection
+        if (_iconsLoaded) {
+          final coordinates = _parseLocation(data['location']);
+          if (coordinates != null) {
+            setState(() {
+              _markers.add(
+                Marker(
+                  markerId: MarkerId(data['location']),
+                  position: coordinates,
+                  onTap: () {
+                    if (data['name'] == 'Ổ gà') {
+                      _getDetailHole(data['_id']);
+                    } else if (data['name'] == 'Vết nứt') {
+                      _getDetailCrack(data['_id']);
+                    }
+                  },
+                  infoWindow: InfoWindow(title: data['name']),
+                  icon: data['name'] == 'Ổ gà' ? _largeHoleIcon : _largeCrackIcon,
+                ),
+              );
+            });
+          } else {
+            print('Invalid coordinates for new detection: $data');
+          }
+        }
+      }
+    });
+
+    // Listener for newMaintainRoad
+    socket.on('newMaintainRoad', (data) {
+      print('New maintain road received: $data');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('New maintain road added'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1)
+        ),
+      );
+      if (data != null && data is Map<String, dynamic>) {
+        setState(() {
+          _listMaintain ??= [];
+          _listMaintain!.add({
+            '_id': data['id'],
+            'sourceName': data['sourceName'],
+            'destinationName': data['destinationName'],
+            'locationA': data['locationA'],
+            'locationB': data['locationB'],
+            'startDate': data['startDate'],
+            'endDate': data['endDate'],
+            'dateMaintain': data['dateMaintain'],
+            'createdAt': data['createdAt'],
+            'updatedAt': data['updatedAt'],
+          });
+          _totalMaintain = _listMaintain!.length;
+        });
+
+        final locationA = _parseLatLng(data['locationA']);
+        final locationB = _parseLatLng(data['locationB']);
+        if (locationA != null && locationB != null) {
+          _drawRouteMaintainFormap(
+            data['sourceName'],
+            data['destinationName'],
+            locationA,
+            locationB,
+            data['dateMaintain'],
+            data['startDate'],
+            data['endDate'],
+          );
+        } else {
+          print('Invalid coordinates for new maintain road: $data');
+        }
+      }
+    });
+
     _loadCustomIcons().then((_) {
       _iconsLoaded = true;
       _getUserLocation();
       _getListHoles();
       _getListCracks();
       _getListMaintain();
+      _getListDamage();
       _showMyLocation();
     });
     _startLocationUpdates();
+  }
+
+  @override
+  void dispose() {
+    socket.disconnect();
+    super.dispose();
   }
 
   void _updateMarkers() {
@@ -90,6 +278,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
     _getListHoles();
     _getListCracks();
     _getListMaintain();
+    _getListDamage();
     _showMyLocation();
   }
 
@@ -229,7 +418,11 @@ class _ManagementScreenState extends State<ManagementScreen> {
         } else if (nameList == 'Crack') {
           _listCrack!.removeWhere((crack) => crack['_id'] == detectionId);
           _totalCrack = _listCrack!.length;
-        } else {
+        } else if (nameList == 'Damage')
+        {
+          _listDamage!.removeWhere((damage) => damage['_id'] == detectionId);
+          _totalDamage = _listDamage!.length;
+        }else {
           _listMaintain!.removeWhere((maintain) => maintain['_id'] == detectionId);
           _totalMaintain = _listMaintain!.length;
         }
@@ -240,6 +433,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         SnackBar(
           content: Text('$nameList deleted successfully!'),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1)
         ),
       );
 
@@ -249,6 +443,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         SnackBar(
           content: Text('Failed to delete $nameList.'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 1)
         ),
       );
     }
@@ -383,7 +578,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         final createdAt = route['createdAt'];
         final updatedAt = route['updatedAt'];
 
-        await _drawRouteFormap(
+        await _drawRouteMaintainFormap(
           route['sourceName'],
           route['destinationName'],
           locationA,
@@ -396,6 +591,37 @@ class _ManagementScreenState extends State<ManagementScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to fetch maintain list')),
+      );
+    }
+  }
+
+  //get list damage
+  Future<void> _getListDamage() async {
+    final response = await getListDamageForMapService.getListDamageForMap();
+
+    if (response['status'] == 'OK') {
+      final data = response['data'];
+      setState(() {
+        _listDamage = data;
+        _totalDamage = data.length;
+      });
+
+      for (var route in data) {
+        final locationA = _parseLatLng(route['locationA']);
+        final locationB = _parseLatLng(route['locationB']);
+
+        await _drawRouteDamageFormap(
+          route['name'],
+          route['sourceName'],
+          route['destinationName'],
+          locationA,
+          locationB,
+          route['createdAt'],
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch damage list')),
       );
     }
   }
@@ -413,6 +639,8 @@ class _ManagementScreenState extends State<ManagementScreen> {
         await getBytesFromAsset('assets/images/large_crack.png', 70);
     final Uint8List maintain =
         await getBytesFromAsset('assets/images/fix_road.png', 70);
+    final Uint8List damage =
+        await getBytesFromAsset('assets/images/damage.png', 70);
 
     setState(() {
       _userIcon = BitmapDescriptor.fromBytes(location);
@@ -421,6 +649,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
      // _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
       _largeCrackIcon = BitmapDescriptor.fromBytes(largeCrack);
       _maintainIcon = BitmapDescriptor.fromBytes(maintain);
+      _damageIcon = BitmapDescriptor.fromBytes(damage);
     });
   }
 
@@ -465,7 +694,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
     });
   }
 
-  Future<void> _drawRouteFormap(String sourceName, String destinationName,
+  Future<void> _drawRouteMaintainFormap(String sourceName, String destinationName,
       LatLng source, LatLng destination, int date, String startDate, String endDate) async {
     final response = await http.get(Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
@@ -525,6 +754,70 @@ class _ManagementScreenState extends State<ManagementScreen> {
     }
   }
 
+  Future<void> _drawRouteDamageFormap(
+      String name,
+      String sourceName,
+      String destinationName,
+      LatLng source,
+      LatLng destination,
+      dateDamage) async {
+    final response = await http.get(Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final points = polylinePoints
+          .decodePolyline(data['routes'][0]['overview_polyline']['points']);
+      List<LatLng> polylineCoordinates = [];
+      if (points.isNotEmpty) {
+        points.forEach((point) {
+          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        });
+      }
+
+      setState(() {
+        final id = PolylineId(source.toString() + '_' + destination.toString());
+        Polyline polyline = Polyline(
+          polylineId: id,
+          color: Colors.red,
+          points: polylineCoordinates,
+          width: 5,
+        );
+        polylines[id] = polyline;
+        if (polylineCoordinates.length > 1) {
+          LatLng midPoint =
+              polylineCoordinates[(polylineCoordinates.length / 2).round()];
+          _markers.add(
+            Marker(
+              markerId: MarkerId('midpoint_${id.value}'),
+              position: midPoint,
+              icon: _damageIcon,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DamageRoadDetailScreen(
+                      name: name,
+                      sourceName: sourceName,
+                      destinationName: destinationName,
+                      locationA: source,
+                      locationB: destination,
+                      dateDamage: dateDamage,
+                    ),
+                  ),
+                );
+              },
+              infoWindow:
+                  InfoWindow(title: name, snippet: 'Click for details'),
+            ),
+          );
+        }
+      });
+    } else {
+      throw Exception('Failed to load directions');
+    }
+  }
+
   LatLng _parseLatLng(String latLngString) {
     final parts =
         latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
@@ -558,8 +851,9 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
   void _goToMarkerDuringParking(
       String location, String type, String description) async {
+    print(type);
     var coordinates;
-    if (type == 'Maintain') {
+    if (type == 'Maintain' || type == 'Damage') {
       coordinates = _parseLocationForMaintain(location);
     } else {
       coordinates = _parseLocation(location);
@@ -574,6 +868,38 @@ class _ManagementScreenState extends State<ManagementScreen> {
             position: coordinates,
             infoWindow: InfoWindow(
               title: '$type',
+              snippet: '$description',
+            ),
+          ),
+        );
+      });
+
+      final GoogleMapController controller = await _controller.future;
+      await controller.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(coordinates.latitude, coordinates.longitude),
+          zoom: 19.0,
+        ),
+      ));
+    } else {
+      print("Invalid location string format");
+    }
+  }
+
+  void _goToMarkerDuringParkingForDamage(
+      String location, String name, String description) async {
+    var coordinates;
+    coordinates = _parseLocationForMaintain(location);
+    if (coordinates != null) {
+      setState(() {
+        polylines.clear();
+        _markers.clear();
+        _markers.add(
+          Marker(
+            markerId: MarkerId('Detection'),
+            position: coordinates,
+            infoWindow: InfoWindow(
+              title: '$name',
               snippet: '$description',
             ),
           ),
@@ -957,7 +1283,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                             Row(
                               children: [
                                 Text(
-                                  '${DateFormat('yyyy/MM/dd ').format(DateTime.parse(item['createdAt']))} - ${DateFormat('yyyy/MM/dd ').format(DateTime.parse(item['updatedAt']))}',
+                                  '${DateFormat('yyyy/MM/dd ').format(DateTime.parse(item['startDate']))} - ${DateFormat('yyyy/MM/dd ').format(DateTime.parse(item['endDate']))}',
                                   style: GoogleFonts.beVietnamPro(
                                     textStyle: const TextStyle(
                                       fontSize: 13,
@@ -984,6 +1310,153 @@ class _ManagementScreenState extends State<ManagementScreen> {
     );
   }
 
+  void _showDamageDrawer(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            Container(
+              height: 70.0,
+              child: DrawerHeader(
+                decoration: const BoxDecoration(
+                  color: Colors.blue,
+                ),
+                child: Text(
+                  'Danh sách hư hỏng đường: $_totalDamage',
+                  style: GoogleFonts.beVietnamPro(
+                    textStyle: const TextStyle(
+                      fontSize: 23,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            ...?_listDamage
+                ?.map((item) => ListTile(
+              title: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.blueAccent,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['name'],
+                      style: GoogleFonts.beVietnamPro(
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      item['sourceName'],
+                      style: GoogleFonts.beVietnamPro(
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Row(
+                      children: [],
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Created: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(item['createdAt']))}',
+                          style: GoogleFonts.beVietnamPro(
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                _showDeleteConfirmationDialog(
+                                    item['_id'], 'Damage');
+                              },
+                              icon:
+                              Icon(Icons.delete, color: Colors.red),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => EditScreen(
+                                      item: item,
+                                      type: 'damage',
+                                      onUpdate: (){
+                                        Navigator.of(context).pop();
+                                        _updateMarkers();
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          DamageRoadDetailScreen(
+                                            name: item['name'],
+                                            sourceName: item['sourceName'],
+                                            destinationName:
+                                            item['destinationName'],
+                                            locationA: _parseLatLng(
+                                                item['locationA']),
+                                            locationB: _parseLatLng(
+                                                item['locationB']),
+                                            dateDamage: item['createdAt'],
+                                          ),
+                                    ),
+                                  );
+                                },
+                                icon: Icon(Icons.library_add_sharp)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              onTap: () {
+                print(item['locationA']);
+                Navigator.of(context).pop();
+                _goToMarkerDuringParkingForDamage(item['locationA'], item['name'],
+                    'Date Created: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(item['createdAt']))}');
+              },
+            ))
+                .toList(),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1003,7 +1476,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
       floatingActionButton: Stack(
         children: <Widget>[
           Positioned(
-            bottom: 265.0,
+            bottom: 310.0,
             right: -4,
             child: FloatingActionButton(
               heroTag: 'Reload Data Management',
@@ -1013,6 +1486,22 @@ class _ManagementScreenState extends State<ManagementScreen> {
               onPressed: _updateMarkers,
               tooltip: 'Reload Data',
               child: Icon(Icons.refresh),
+            ),
+          ),
+          Positioned(
+            bottom: 265.0,
+            right: -4,
+            child: FloatingActionButton(
+              heroTag: 'List Damage Management',
+              mini: true,
+              shape: const CircleBorder(),
+              backgroundColor: Color(0xFFFFFFFF),
+              onPressed: () {
+                _showDamageDrawer(context);
+              },
+              tooltip: 'List Damage',
+              child: Image.asset('assets/images/damage.png',
+                  width: 30, height: 30),
             ),
           ),
           Positioned(
@@ -1088,6 +1577,21 @@ class _ManagementScreenState extends State<ManagementScreen> {
                 ),
                 child: Column(
                   children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Damage',
+                          style: GoogleFonts.beVietnamPro(
+                            textStyle: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        Image.asset('assets/images/damage.png',
+                            width: 40, height: 40)
+                      ],
+                    ),
                     Row(
                       children: [
                         Text(

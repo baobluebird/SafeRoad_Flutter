@@ -20,10 +20,11 @@ class TrackingMapScreen extends StatefulWidget {
 
 class _TrackingMapScreenState extends State<TrackingMapScreen> {
   final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
+  Completer<GoogleMapController>();
   late Position _currentPosition;
   List<dynamic> largeHoles = [];
   List<dynamic> maintainRoad = [];
+  List<dynamic> floodRoad = [];
   LatLng? _selectedPosition;
   int _currentHoleIndex = 0;
   Set<Marker> _markers = {};
@@ -35,6 +36,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   late BitmapDescriptor _userIcon;
   late BitmapDescriptor _largeHoleIcon;
   late BitmapDescriptor _maintainRoadIcon;
+  late BitmapDescriptor _floodRoadIcon;
   bool _isWarningDisplayed = false;
   Map<int, Set<String>> _holeWarnings = {};
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -56,9 +58,10 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       _currentDistance = 0;
       largeHoles = [];
       maintainRoad = [];
+      floodRoad = [];
       _holeWarnings.clear();
     });
-    FocusScope.of(context).unfocus(); // Ẩn bàn phím
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> _triggerAlert() async {
@@ -102,6 +105,10 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       'assets/images/fix_road.png',
       160,
     );
+    final Uint8List flood = await getBytesFromAsset(
+      'assets/images/flood.png',
+      160,
+    );
     final Uint8List largeHole = await getBytesFromAsset(
       'assets/images/large_hole.png',
       130,
@@ -112,6 +119,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _userIcon = BitmapDescriptor.fromBytes(location);
         _largeHoleIcon = BitmapDescriptor.fromBytes(largeHole);
         _maintainRoadIcon = BitmapDescriptor.fromBytes(maintain);
+        _floodRoadIcon = BitmapDescriptor.fromBytes(flood);
       });
     }
   }
@@ -159,9 +167,10 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
     if (_isMounted) {
       setState(() {
         _markers.removeWhere(
-          (marker) =>
+              (marker) =>
               marker.markerId.value.contains('largeHole') ||
-              marker.markerId.value.contains('maintainRoad'),
+              marker.markerId.value.contains('maintainRoad')||
+          marker.markerId.value.contains('floodRoad'),
         );
         _markers.add(
           Marker(
@@ -170,7 +179,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
               _currentPosition.latitude,
               _currentPosition.longitude,
             ),
-            infoWindow: InfoWindow(title: 'Current Location'),
+            infoWindow: InfoWindow(title: 'Vị trí hiện tại'),
             icon: _userIcon,
           ),
         );
@@ -182,8 +191,8 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
               markerId: MarkerId('largeHole$largeHoleIndex'),
               position: LatLng(item[0], item[1]),
               infoWindow: InfoWindow(
-                title: 'Large Hole',
-                snippet: 'Be cautious!',
+                title: 'Ổ gà lớn',
+                snippet: 'Hãy cẩn thận!',
               ),
               icon: _largeHoleIcon,
             ),
@@ -197,20 +206,35 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
               markerId: MarkerId('maintainRoad$maintainRoadIndex'),
               position: LatLng(item[0], item[1]),
               infoWindow: InfoWindow(
-                title: 'Maintain Road',
-                snippet: 'Be cautious!',
+                title: 'Đường bảo trì',
+                snippet: 'Hãy cẩn thận!',
               ),
               icon: _maintainRoadIcon,
             ),
           );
           maintainRoadIndex++;
         }
+        int floodRoadIndex = 0;
+        for (var item in floodRoad) {
+          _markers.add(
+            Marker(
+              markerId: MarkerId('floodRoad$floodRoadIndex'),
+              position: LatLng(item[0], item[1]),
+              infoWindow: InfoWindow(
+                title: 'Đường ngập lụt',
+                snippet: 'Hãy cẩn thận!',
+              ),
+              icon: _floodRoadIcon,
+            ),
+          );
+          floodRoadIndex++;
+        }
         if (_selectedPosition != null) {
           _markers.add(
             Marker(
               markerId: MarkerId('selectedLocation'),
               position: _selectedPosition!,
-              infoWindow: InfoWindow(title: 'Selected Location'),
+              infoWindow: InfoWindow(title: 'Điểm đến đã chọn'),
             ),
           );
         }
@@ -230,7 +254,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           Marker(
             markerId: MarkerId('currentLocation'),
             position: LatLng(position.latitude, position.longitude),
-            infoWindow: InfoWindow(title: 'Current Location'),
+            infoWindow: InfoWindow(title: 'Vị trí hiện tại'),
             icon: _userIcon,
           ),
         );
@@ -260,7 +284,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             Marker(
               markerId: MarkerId('currentLocation'),
               position: LatLng(position.latitude, position.longitude),
-              infoWindow: InfoWindow(title: 'Current Location'),
+              infoWindow: InfoWindow(title: 'Vị trí hiện tại'),
               icon: _userIcon,
             ),
           );
@@ -297,14 +321,14 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           _currentDistance = distance;
         });
       }
-      print('Distance to large hole: $distance');
-      print('Current hole index: $_currentHoleIndex');
+      print('Khoảng cách đến ổ gà lớn: $distance');
+      print('Chỉ số ổ gà hiện tại: $_currentHoleIndex');
 
       if (distance < 10 && !_hasWarningBeenShown(_currentHoleIndex, '10m')) {
         _triggerAlert();
-        _isWarningDisplayed = true; // Set the warning displayed flag to true
+        _isWarningDisplayed = true;
         await _showWarningDialog(
-          'You are within 10 meters of a large hole!',
+          'Bạn đang ở trong vòng 10 mét của một ổ gà lớn!',
           3,
         );
         _markWarningAsShown(_currentHoleIndex, '10m');
@@ -316,12 +340,12 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             nextHole[0],
             nextHole[1],
           );
-          print('nextDistance: $nextDistance');
+          print('Khoảng cách đến ổ gà tiếp theo: $nextDistance');
           if (nextDistance < 30) {
             _triggerAlert4();
             _isWarningDisplayed = true;
             await _showWarningDialog(
-              'Another hole in the front, be careful!',
+              'Có một ổ gà khác phía trước, hãy cẩn thận!',
               3,
             );
             _currentHoleIndex++;
@@ -329,7 +353,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           }
         }
         _currentHoleIndex++;
-        _isWarningDisplayed = false; // Reset the warning displayed flag
+        _isWarningDisplayed = false;
         _stopAlert();
       } else if (30 < distance &&
           distance < 50 &&
@@ -337,7 +361,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _isWarningDisplayed = true;
         _triggerAlert2();
         await _showWarningDialog(
-          'You are within 50 meters of a large hole!',
+          'Bạn đang ở trong vòng 50 mét của một ổ gà lớn!',
           3,
         );
         _markWarningAsShown(_currentHoleIndex, '50m');
@@ -349,7 +373,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _triggerAlert3();
         _isWarningDisplayed = true;
         await _showWarningDialog(
-          'You are within 100 meters of a large hole!',
+          'Bạn đang ở trong vòng 100 mét của một ổ gà lớn!',
           3,
         );
         _markWarningAsShown(_currentHoleIndex, '100m');
@@ -375,7 +399,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           }
         });
 
-        return AlertDialog(title: Text('Warning'), content: Text(message));
+        return AlertDialog(title: Text('Cảnh báo'), content: Text(message));
       },
     );
   }
@@ -406,31 +430,352 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       if (!_isMounted) return;
       if (_isMounted) {
         setState(() {
+          _polylines.clear(); // Xóa các polyline cũ trước khi thêm mới
           _polylines.add(
             Polyline(
               polylineId: PolylineId('route'),
               points:
-                  points
-                      .map((point) => LatLng(point.latitude, point.longitude))
-                      .toList(),
+              points.map((point) => LatLng(point.latitude, point.longitude)).toList(),
               color: Colors.blue,
               width: 5,
             ),
           );
         });
+        print('Đã vẽ tuyến đường chính với ${points.length} điểm');
       }
-      // Print the coordinates of the route and upload them to the server
       List<Map<String, double>> coordinates = [];
       points.forEach((point) {
         coordinates.add({
           'latitude': point.latitude,
           'longitude': point.longitude,
         });
-        print('Coordinate: ${point.latitude}, ${point.longitude}');
       });
       await _uploadCoordinates(coordinates);
     } else {
-      throw Exception('Failed to load directions');
+      print('Lỗi tải chỉ đường: ${response.statusCode}');
+      throw Exception('Không thể tải dữ liệu chỉ đường');
+    }
+  }
+
+  Future<void> _drawAlternativeRoute(String encodedPolyline) async {
+    final points = PolylinePoints().decodePolyline(encodedPolyline);
+    List<Map<String, double>> coordinates = [];
+    points.forEach((point) {
+      coordinates.add({
+        'latitude': point.latitude,
+        'longitude': point.longitude,
+      });
+    });
+
+    print('Gửi ${coordinates.length} tọa độ tuyến đường thay thế lên server');
+
+    try {
+      final response = await http.post(
+        Uri.parse('$ip/detection/post-location-tracking'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'coordinates': coordinates}),
+      );
+
+      if (response.statusCode == 200) {
+        print('Phản hồi server: ${response.body}');
+        final responseData = jsonDecode(response.body);
+        List<dynamic> hole = responseData['matchingCoordinatesHole'] ?? [];
+        List<dynamic> maintain = responseData['matchingCoordinatesMaintainRoad'] ?? [];
+        List <dynamic> flood = responseData['matchingCoordinatesFloodRoad'] ?? [];
+
+        if (_isMounted) {
+          setState(() {
+            largeHoles = hole;
+            maintainRoad = maintain;
+            floodRoad = flood;
+            _currentHoleIndex = 0;
+            _holeWarnings.clear();
+          });
+        } else {
+          print('Widget không còn mounted, bỏ qua cập nhật trạng thái');
+          return;
+        }
+
+        if (maintain.isEmpty && flood.isEmpty) {
+          print('Không có bảo trì, xóa tuyến cũ và vẽ tuyến mới');
+          if (_isMounted) {
+            setState(() {
+              _polylines.clear(); // Xóa toàn bộ tuyến đường cũ
+              _polylines.add(
+                Polyline(
+                  polylineId: PolylineId('route_${DateTime.now().millisecondsSinceEpoch}'),
+                  points: points
+                      .map((point) => LatLng(point.latitude, point.longitude))
+                      .toList(),
+                  color: Colors.blue,
+                  width: 5,
+                ),
+              );
+              print('Đã thêm tuyến đường mới với ${points.length} điểm, polyline count: ${_polylines.length}');
+            });
+          }
+
+          // Làm mới bản đồ để hiển thị tuyến đường mới
+          try {
+            final GoogleMapController controller = await _controller.future;
+            final bounds = LatLngBounds(
+              southwest: LatLng(
+                points.map((p) => p.latitude).reduce((a, b) => a < b ? a : b),
+                points.map((p) => p.longitude).reduce((a, b) => a < b ? a : b),
+              ),
+              northeast: LatLng(
+                points.map((p) => p.latitude).reduce((a, b) => a > b ? a : b),
+                points.map((p) => p.longitude).reduce((a, b) => a > b ? a : b),
+              ),
+            );
+            await controller.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 50.0),
+            );
+            print('Đã làm mới bản đồ với bounds: $bounds');
+          } catch (e) {
+            print('Lỗi khi làm mới bản đồ: $e');
+          }
+
+          _updateMarkers();
+          if (largeHoles.isEmpty) {
+            if (_isMounted) {
+              setState(() {
+                _currentDistance = 0;
+              });
+            }
+          } else {
+            var hole = largeHoles[0];
+            final double distance = Geolocator.distanceBetween(
+              _currentPosition.latitude,
+              _currentPosition.longitude,
+              hole[0],
+              hole[1],
+            );
+            if (_isMounted) {
+              setState(() {
+                _currentDistance = distance;
+              });
+            }
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã chọn tuyến đường thay thế không có bảo trì hoặc ngập lụt!'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lộ trình thay thế vẫn có bảo trì hoặc ngập lụt, hãy chọn lộ trình khác!'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          await _showMaintenanceWarningDialog();
+        }
+      } else {
+        throw Exception('Không thể kiểm tra tọa độ tuyến đường thay thế: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Lỗi khi xử lý tuyến đường thay thế: $e');
+      if (_isMounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi kiểm tra tuyến đường thay thế!'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchAndShowAlternativeRoutes(LatLng destination) async {
+    final response = await http.get(
+      Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${_currentPosition.latitude},${_currentPosition.longitude}&destination=${destination.latitude},${destination.longitude}&alternatives=true&avoid=highways,tolls&key=$api_key',
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final routes = data['routes'] as List<dynamic>;
+      print('Số lộ trình thay thế: ${routes.length}');
+
+      // Log tọa độ lộ trình hiện tại (nếu có)
+      List<LatLng> currentPoints = [];
+      if (_polylines.isNotEmpty) {
+        currentPoints = _polylines.first.points;
+        print('Tọa độ lộ trình hiện tại (${currentPoints.length} điểm):');
+        currentPoints.asMap().forEach((index, point) {
+          print('Điểm $index: [${point.latitude}, ${point.longitude}]');
+        });
+      } else {
+        print('Không có lộ trình hiện tại để so sánh');
+      }
+
+      if (routes.length <= 1) {
+        print('Không đủ lộ trình thay thế để hiển thị');
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Thông báo'),
+              content: Text('Không tìm thấy lộ trình thay thế.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
+
+      // Kiểm tra từng lộ trình thay thế qua server
+      List<Map<String, dynamic>> validRoutes = [];
+      List<Map<String, dynamic>> allRoutes = [];
+      for (int i = 0; i < routes.length; i++) {
+        final route = routes[i];
+        final points = PolylinePoints().decodePolyline(route['overview_polyline']['points']);
+        List<Map<String, double>> coordinates = [];
+        points.forEach((point) {
+          coordinates.add({
+            'latitude': point.latitude,
+            'longitude': point.longitude,
+          });
+        });
+
+        // Log tọa độ lộ trình thay thế
+        print('Tọa độ lộ trình thay thế ${i + 1} (${points.length} điểm):');
+        points.asMap().forEach((index, point) {
+          print('Điểm $index: [${point.latitude}, ${point.longitude}]');
+        });
+
+        // So sánh với lộ trình hiện tại để loại bỏ lộ trình trùng lặp
+        bool isDuplicate = false;
+        if (currentPoints.isNotEmpty && points.length == currentPoints.length) {
+          isDuplicate = true;
+          for (int j = 0; j < points.length; j++) {
+            if ((points[j].latitude - currentPoints[j].latitude).abs() > 0.00001 ||
+                (points[j].longitude - currentPoints[j].longitude).abs() > 0.00001) {
+              isDuplicate = false;
+              break;
+            }
+          }
+        }
+        if (isDuplicate) {
+          print('Lộ trình ${i + 1} trùng với lộ trình hiện tại, bỏ qua');
+          continue;
+        }
+
+        try {
+          final serverResponse = await http.post(
+            Uri.parse('$ip/detection/post-location-tracking'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'coordinates': coordinates}),
+          );
+
+          if (serverResponse.statusCode == 200) {
+            final responseData = jsonDecode(serverResponse.body);
+            List<dynamic> maintain = responseData['matchingCoordinatesMaintainRoad'] ?? [];
+            List<dynamic> flood = responseData['matchingCoordinatesFloodRoad'] ?? [];
+            allRoutes.add({
+              'index': i + 1,
+              'route': route,
+              'polyline': route['overview_polyline']['points'],
+              'maintain': maintain,
+              'flood': flood,
+            });
+            if (maintain.isEmpty && flood.isEmpty) {
+              validRoutes.add({
+                'index': i + 1,
+                'route': route,
+                'polyline': route['overview_polyline']['points'],
+              });
+              print('Lộ trình ${i + 1}: maintainRoad = $maintain (Hợp lệ)');
+            } else {
+              print('Lộ trình ${i + 1}: maintainRoad = $maintain (Không hợp lệ do có bảo trì)');
+            }
+          } else {
+            print('Lỗi kiểm tra lộ trình ${i + 1}: ${serverResponse.statusCode}');
+          }
+        } catch (e) {
+          print('Lỗi khi kiểm tra lộ trình ${i + 1}: $e');
+        }
+      }
+
+      // Nếu không có lộ trình nào không có bảo trì, hiển thị tất cả lộ trình với cảnh báo
+      final displayRoutes = validRoutes.isNotEmpty ? validRoutes : allRoutes;
+      if (displayRoutes.isEmpty) {
+        print('Không có lộ trình thay thế khả dụng sau khi kiểm tra');
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Thông báo'),
+              content: Text('Không tìm thấy lộ trình thay thế khả dụng.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+        return;
+      }
+
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Chọn lộ trình thay thế'),
+            content: Container(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: displayRoutes.length,
+                itemBuilder: (context, index) {
+                  final routeData = displayRoutes[index];
+                  final route = routeData['route'];
+                  final routeIndex = routeData['index'];
+                  final maintain = routeData['maintain'] ?? [];
+                  final flood = routeData['flood'] ?? [];
+                  final distance = route['legs'][0]['distance']['text'];
+                  final duration = route['legs'][0]['duration']['text'];
+                  final subtitle = maintain.isEmpty
+                      ? 'Khoảng cách: $distance, Thời gian: $duration'
+                      : 'Khoảng cách: $distance, Thời gian: $duration (Có bảo trì hoặc ngập lụt)';
+                  return ListTile(
+                    title: Text('Lộ trình $routeIndex'),
+                    subtitle: Text(subtitle),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _drawAlternativeRoute(routeData['polyline']);
+                    },
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text('Hủy'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      print('Lỗi tải lộ trình thay thế: ${response.statusCode}');
+      throw Exception('Không thể tải lộ trình thay thế');
     }
   }
 
@@ -449,7 +794,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Send help successfully!'),
+            content: Text('Gửi yêu cầu trợ giúp thành công!'),
             duration: const Duration(seconds: 2),
             backgroundColor: Colors.green,
           ),
@@ -457,37 +802,43 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error send!'),
+            content: Text('Lỗi khi gửi yêu cầu!'),
             duration: const Duration(seconds: 2),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (error) {
-      print('Error: $error');
+      print('Lỗi: $error');
     }
   }
 
   Future<void> _showMaintenanceWarningDialog() async {
-    await showDialog(
+    final action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Cảnh báo'),
           content: Text(
-            'Đoạn đường bạn đi đang được bảo trì, bạn có muốn tiếp tục không?',
+            'Đoạn đường bạn đi đang được bảo trì hoặc ngập lụt, bạn có muốn tiếp tục không?',
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(true);
+                Navigator.of(context).pop('continue');
               },
               child: Text('Tiếp tục'),
             ),
             TextButton(
               onPressed: () {
+                Navigator.of(context).pop('suggest');
+              },
+              child: Text('Đề xuất tuyến đường khác'),
+            ),
+            TextButton(
+              onPressed: () {
                 _clearTrack();
-                Navigator.of(context).pop(false);
+                Navigator.of(context).pop('cancel');
               },
               child: Text('Hủy bỏ'),
             ),
@@ -495,59 +846,97 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         );
       },
     );
+
+    if (action == 'suggest' && _selectedPosition != null) {
+      print('Bắt đầu tìm lộ trình thay thế cho đích đến: ${_selectedPosition!.latitude}, ${_selectedPosition!.longitude}');
+      await _fetchAndShowAlternativeRoutes(_selectedPosition!);
+    } else if (action == 'suggest' && _selectedPosition == null) {
+      print('Không thể tìm lộ trình thay thế: _selectedPosition là null');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng chọn điểm đến trước!'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _uploadCoordinates(List<Map<String, double>> coordinates) async {
-    final response = await http.post(
-      Uri.parse('$ip/detection/post-location-tracking'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'coordinates': coordinates}),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$ip/detection/post-location-tracking'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'coordinates': coordinates}),
+      );
 
-    if (response.statusCode == 200) {
-      print('Response: ${response.body}');
+      if (response.statusCode == 200) {
+        print('Phản hồi server: ${response.body}');
+        try {
+          final responseData = jsonDecode(response.body);
+          List<dynamic> Hole = responseData['matchingCoordinatesHole'] ?? [];
+          List<dynamic> MaintainRoad = responseData['matchingCoordinatesMaintainRoad'] ?? [];
+          List<dynamic> FloodRoad = responseData['matchingCoordinatesFloodRoad'] ?? [];
 
-      List<dynamic> Hole = jsonDecode(response.body)['matchingCoordinatesHole'];
-      List<dynamic> MaintainRoad =
-          jsonDecode(response.body)['matchingCoordinatesMaintainRoad'];
+          if (_isMounted) {
+            setState(() {
+              largeHoles = Hole;
+              maintainRoad = MaintainRoad;
+              floodRoad = FloodRoad;
+              _currentHoleIndex = 0;
+              _holeWarnings.clear();
+            });
+          }
+          _updateMarkers();
+          if (maintainRoad.isNotEmpty || floodRoad.isNotEmpty) {
+            await _showMaintenanceWarningDialog();
+          } else if (largeHoles.isEmpty) {
+            if (_isMounted) {
+              setState(() {
+                _currentDistance = 0;
+              });
+            }
+          } else {
+            var hole = largeHoles[0];
+            final double distance = Geolocator.distanceBetween(
+              _currentPosition.latitude,
+              _currentPosition.longitude,
+              hole[0],
+              hole[1],
+            );
+            if (_isMounted) {
+              setState(() {
+                _currentDistance = distance;
+              });
+            }
+            print('Phát hiện ổ gà tại: ${hole[0]}, ${hole[1]}');
+          }
 
-      if (_isMounted) {
-        setState(() {
-          largeHoles = Hole;
-          maintainRoad = MaintainRoad;
-          _currentHoleIndex = 0;
-          _holeWarnings.clear();
-        });
-      }
-      _updateMarkers();
-      if (maintainRoad.isNotEmpty) {
-        _showMaintenanceWarningDialog();
-      }
-      if (largeHoles.isEmpty) {
-        if (_isMounted) {
-          setState(() {
-            _currentDistance = 0;
-          });
+          print('Tải tọa độ lên thành công');
+          print('Tọa độ khớp: $largeHoles');
+        } catch (e) {
+          print('Lỗi giải mã phản hồi server: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi khi xử lý dữ liệu từ server!'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       } else {
-        var hole = largeHoles[0];
-        final double distance = Geolocator.distanceBetween(
-          _currentPosition.latitude,
-          _currentPosition.longitude,
-          hole[0],
-          hole[1],
-        );
-        if (_isMounted) {
-          setState(() {
-            _currentDistance = distance;
-          });
-        }
+        print('Lỗi server: ${response.statusCode}');
+        throw Exception('Không thể tải tọa độ lên');
       }
-
-      print('Coordinates uploaded successfully');
-      print('Matching Coordinates: $largeHoles');
-    } else {
-      throw Exception('Failed to upload coordinates');
+    } catch (e) {
+      print('Lỗi khi gửi tọa độ: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi kết nối server!'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -571,14 +960,15 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
             Marker(
               markerId: MarkerId('selectedLocation'),
               position: destination,
-              infoWindow: InfoWindow(title: 'Selected Location'),
+              infoWindow: InfoWindow(title: 'Điểm đến đã chọn'),
             ),
           );
         });
       }
-      _drawRoute(destination);
+      await _drawRoute(destination);
     } else {
-      throw Exception('Failed to load geocoding data');
+      print('Lỗi tải dữ liệu mã hóa địa lý: ${response.statusCode}');
+      throw Exception('Không thể tải dữ liệu mã hóa địa lý');
     }
   }
 
@@ -598,7 +988,8 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       final predictions = data['predictions'];
       return List<String>.from(predictions.map((p) => p['description']));
     } else {
-      throw Exception('Failed to load place predictions');
+      print('Lỗi tải dự đoán địa điểm: ${response.statusCode}');
+      throw Exception('Không thể tải dự đoán địa điểm');
     }
   }
 
@@ -610,7 +1001,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           Marker(
             markerId: MarkerId('selectedLocation'),
             position: position,
-            infoWindow: InfoWindow(title: 'Selected Location'),
+            infoWindow: InfoWindow(title: 'Điểm đến đã chọn'),
           ),
         );
       });
@@ -622,9 +1013,10 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
     if (_isMounted) {
       setState(() {
         _markers.removeWhere(
-          (marker) =>
-              marker.markerId.value.contains('largeHole') ||
+              (marker) =>
+          marker.markerId.value.contains('largeHole') ||
               marker.markerId.value.contains('maintainRoad') ||
+          marker.markerId.value.contains('floodRoad') ||
               marker.markerId.value == 'selectedLocation',
         );
         _polylines.clear();
@@ -633,6 +1025,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _currentDistance = 0;
         largeHoles = [];
         maintainRoad = [];
+        floodRoad = [];
         _holeWarnings.clear();
       });
     }

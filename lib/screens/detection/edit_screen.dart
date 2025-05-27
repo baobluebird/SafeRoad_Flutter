@@ -31,6 +31,8 @@ class _EditScreenState extends State<EditScreen> {
   late TextEditingController _locationBController;
   late TextEditingController _startDateController;
   late TextEditingController _endDateController;
+
+  late TextEditingController _nameController;
   File? _imageFile;
   bool _isLoading = false;
 
@@ -50,11 +52,27 @@ class _EditScreenState extends State<EditScreen> {
       _locationController = TextEditingController();
       _addressController = TextEditingController();
       _descriptionController = TextEditingController();
-    } else {
+      _nameController = TextEditingController();
+    }else if (widget.type == 'damage') {
+      _nameController = TextEditingController(text: widget.item['name']);
+      _sourceNameController = TextEditingController(text: widget.item['sourceName']);
+      _destinationNameController = TextEditingController(text: widget.item['destinationName']);
+      _locationAController = TextEditingController(text: widget.item['locationA']);
+      _locationBController = TextEditingController(text: widget.item['locationB']);
+
+      // Không sử dụng controller của hole/crack/maintain
+      _startDateController = TextEditingController();
+      _endDateController = TextEditingController();
+      _locationController = TextEditingController();
+      _addressController = TextEditingController();
+      _descriptionController = TextEditingController();
+    }
+    else {
       _locationController = TextEditingController(text: widget.item['location']);
       _addressController = TextEditingController(text: widget.item['address']);
       _descriptionController = TextEditingController(text: widget.item['description']);
       // Không sử dụng controller của maintain
+      _nameController = TextEditingController();
       _sourceNameController = TextEditingController();
       _destinationNameController = TextEditingController();
       _locationAController = TextEditingController();
@@ -148,7 +166,17 @@ class _EditScreenState extends State<EditScreen> {
           description: _descriptionController.text,
           image: _imageFile,
         );
-      } else {
+      } else if (widget.type == 'damage') {
+        response = await UpdateDamageService.updateDamage(
+          id: widget.item['_id'],
+          name: _nameController.text,
+          sourceName: _sourceNameController.text,
+          destinationName: _destinationNameController.text,
+          locationA: _locationAController.text,
+          locationB: _locationBController.text,
+        );
+      }
+      else {
         response = await UpdateMaintainService.updateMaintain(
           id: widget.item['_id'],
           sourceName: _sourceNameController.text,
@@ -168,7 +196,7 @@ class _EditScreenState extends State<EditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Cập nhật ${widget.type == 'hole' ? 'ổ gà' : widget.type == 'crack' ? 'vết nứt' : 'đường bảo trì'} thành công!',
+              'Cập nhật ${widget.type == 'hole' ? 'ổ gà' : widget.type == 'crack' ? 'vết nứt' : widget.type == 'damage' ? 'ngập lụt' : 'đường bảo trì'} thành công!',
             ),
             backgroundColor: Colors.green,
           ),
@@ -191,7 +219,7 @@ class _EditScreenState extends State<EditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Chỉnh sửa ${widget.type == 'hole' ? 'ổ gà' : widget.type == 'crack' ? 'vết nứt' : 'đường bảo trì'}',
+          'Chỉnh sửa ${widget.type == 'hole' ? 'ổ gà' : widget.type == 'crack' ? 'vết nứt' : widget.type == 'damage' ? 'ngập lụt' : 'đường bảo trì'}',
         ),
       ),
       body: Padding(
@@ -286,7 +314,68 @@ class _EditScreenState extends State<EditScreen> {
                 ),
               ],
             )
-                : Column(
+                : widget.type == 'damage'
+                ? Column(
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Tên loại hư hỏng'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập tên loại hư hỏng';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _sourceNameController,
+                  decoration: const InputDecoration(labelText: 'Tên điểm xuất phát'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập tên điểm xuất phát';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _destinationNameController,
+                  decoration: const InputDecoration(labelText: 'Tên điểm đích'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập tên điểm đích';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _locationAController,
+                  decoration: const InputDecoration(labelText: 'Vị trí A (Tọa độ)'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập vị trí A';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _locationBController,
+                  decoration: const InputDecoration(labelText: 'Vị trí B (Tọa độ)'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập vị trí B';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                _isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                  onPressed: _updateItem,
+                  child: const Text('Cập nhật'),
+                ),
+              ],
+            ) : Column(
               children: [
                 TextFormField(
                   controller: _locationController,

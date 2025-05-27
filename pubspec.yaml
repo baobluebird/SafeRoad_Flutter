@@ -54,6 +54,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.5
+  socket_io_client: ^2.0.1
 
   # Device & Permissions
   permission_handler: ^11.0.1
@@ -111,6 +112,7 @@ flutter:
     - assets/images/small_crack.png
     - assets/images/large_crack.png
     - assets/images/fix_road.png
+    - assets/images/damage.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

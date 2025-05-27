@@ -34,6 +34,7 @@ class MapScreenState extends State<MapScreen> {
   // late BitmapDescriptor _smallCrackIcon;
   late BitmapDescriptor _largeCrackIcon;
   late BitmapDescriptor _maintainIcon;
+  late BitmapDescriptor _damageIcon;
 
   // List<dynamic> smallHoles = [];
   // List<dynamic> largeHoles = [];
@@ -118,6 +119,7 @@ class MapScreenState extends State<MapScreen> {
       final Uint8List smallCrack = await getBytesFromAsset('assets/images/small_crack.png', 50);
       final Uint8List largeCrack = await getBytesFromAsset('assets/images/large_crack.png', 70);
       final Uint8List maintain = await getBytesFromAsset('assets/images/fix_road.png', 70);
+      final Uint8List damage = await getBytesFromAsset('assets/images/damage.png', 70);
 
       setState(() {
         _userIcon = BitmapDescriptor.fromBytes(location);
@@ -126,6 +128,7 @@ class MapScreenState extends State<MapScreen> {
         // _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
         _largeCrackIcon = BitmapDescriptor.fromBytes(largeCrack);
         _maintainIcon = BitmapDescriptor.fromBytes(maintain);
+        _damageIcon = BitmapDescriptor.fromBytes(damage);
         _iconsLoaded = true; // Đặt _iconsLoaded sau khi tất cả icon được tải
       });
 
@@ -161,7 +164,7 @@ class MapScreenState extends State<MapScreen> {
     final response = await DetectionCoordinateService.getDetectionCoordinates();
 
     if (!mounted) return;
-
+    print('reload data: $response');
     if (response['status'] == 'OK') {
       setState(() {
         holes = [...response['latLongSmallHole'], ...response['latLongLargeHole']];
@@ -226,7 +229,7 @@ class MapScreenState extends State<MapScreen> {
   }
 
 
-  Future<void> _drawRouteForMap(LatLng source, LatLng destination, int date, String createdAt, String updatedAt) async {
+  Future<void> _drawRouteMaintainForMap(LatLng source, LatLng destination, int date, String createdAt, String updatedAt) async {
     final response = await http.get(Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
 
@@ -276,6 +279,56 @@ class MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _drawRouteDamageForMap(String name, LatLng source, LatLng destination, String createdAt, String updatedAt) async {
+    final response = await http.get(Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final points = polylinePoints.decodePolyline(data['routes'][0]['overview_polyline']['points']);
+      List<LatLng> polylineCoordinates = [];
+
+      if (points.isNotEmpty) {
+        points.forEach((point) {
+          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        });
+      }
+
+      if (!mounted) return; // 🔥 Kiểm tra widget còn mounted không trước khi gọi setState()
+
+      setState(() {
+        final id = PolylineId(source.toString() + '_' + destination.toString());
+        Polyline polyline = Polyline(
+          polylineId: id,
+          color: Colors.blueAccent,
+          points: polylineCoordinates,
+          width: 5,
+        );
+        polylines[id] = polyline;
+
+        if (polylineCoordinates.length > 1) {
+          LatLng midPoint = polylineCoordinates[(polylineCoordinates.length / 2).round()];
+          _markers.add(
+            Marker(
+              markerId: MarkerId('midpoint_${id.value}'),
+              position: midPoint,
+              icon: _damageIcon,
+              infoWindow: InfoWindow(
+                title: name,
+                snippet: 'Warning',
+              ),
+            ),
+          );
+        }
+      });
+    } else {
+      if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load directions'))
+      );
+    }
+  }
+
 
   Future<void> _fetchAndDrawRoutes() async {
     final response = await getListMaintainForMapService.getListMaintainForMap();
@@ -290,11 +343,29 @@ class MapScreenState extends State<MapScreen> {
         final date = route['dateMaintain'];
         final createdAt = route['createdAt'];
         final updatedAt = route['updatedAt'];
-        await _drawRouteForMap(locationA, locationB, date, createdAt, updatedAt);
+        await _drawRouteMaintainForMap(locationA, locationB, date, createdAt, updatedAt);
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(response['message'] ?? 'Failed to fetch routes')),
+      );
+    }
+
+    final responseDamage = await getListDamageForMapService.getListDamageForMap();
+
+    if (responseDamage['status'] == 'OK') {
+      final data = responseDamage['data'];
+      for (var route in data) {
+        final name = route['name'];
+        final locationA = _parseLatLng(route['locationA']);
+        final locationB = _parseLatLng(route['locationB']);
+        final createdAt = route['createdAt'];
+        final updatedAt = route['updatedAt'];
+        await _drawRouteDamageForMap(name, locationA, locationB, createdAt, updatedAt);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(responseDamage['message'] ?? 'Failed to fetch routes')),
       );
     }
   }
@@ -445,6 +516,22 @@ class MapScreenState extends State<MapScreen> {
                 ),
                 child: Column(
                   children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 10),
+                        Text(
+                          'Damage',
+                          style: GoogleFonts.beVietnamPro(
+                            textStyle: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Image.asset('assets/images/damage.png', width: 40, height: 40)
+                      ],
+                    ),
                     Row(
                       children: [
                         const SizedBox(width: 10),

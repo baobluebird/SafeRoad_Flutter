@@ -4,29 +4,29 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pothole/ipconfig/ip.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:pothole/screens/detection/road_detail.dart';
+import 'package:pothole/screens/detection/damage_detail.dart';
 
 import 'edit_screen.dart';
 
-class MaintainRoadScreen extends StatefulWidget {
-  const MaintainRoadScreen({Key? key}) : super(key: key);
+class DamageRoadScreen extends StatefulWidget {
+  const DamageRoadScreen({Key? key}) : super(key: key);
 
   @override
-  State<MaintainRoadScreen> createState() => _MaintainRoadState();
+  State<DamageRoadScreen> createState() => _DamageRoadState();
 }
 
-class _MaintainRoadState extends State<MaintainRoadScreen> {
-  List<dynamic>? _maintainRoads;
+class _DamageRoadState extends State<DamageRoadScreen> {
+  List<dynamic>? _damageRoads;
   int _total = 0;
 
-  Future<void> _getListMaintainRoad() async {
-    var url = Uri.parse('$ip/detection/get-maintain-road');
+  Future<void> _getListDamageRoad() async {
+    var url = Uri.parse('$ip/detection/get-damage-road');
     var response = await http.get(url);
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body)['data'];
       setState(() {
-        _maintainRoads = data;
+        _damageRoads = data;
         _total = data.length;
       });
     } else {
@@ -35,19 +35,19 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
     }
   }
 
-  Future<void> _deleteMaintainRoad(String id) async {
+  Future<void> _deleteDamageRoad(String id) async {
     final response = await http.delete(
-      Uri.parse('$ip/detection/delete-maintain/$id'),
+      Uri.parse('$ip/detection/delete-damage/$id'),
     );
 
     if (response.statusCode == 200) {
       setState(() {
-        _maintainRoads!.removeWhere((road) => road['_id'] == id);
+        _damageRoads!.removeWhere((damage) => damage['_id'] == id);
         _total--;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Maintain road deleted successfully!'),
+          content: Text('Damage road deleted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -64,38 +64,35 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
   @override
   void initState() {
     super.initState();
-    _getListMaintainRoad();
+    _getListDamageRoad();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _maintainRoads == null
+      body: _damageRoads == null
           ? const Center(child: CircularProgressIndicator())
-          : _maintainRoads!.isEmpty
-          ? const Center(child: Text('No maintain roads available'))
+          : _damageRoads!.isEmpty
+          ? const Center(child: Text('No damage roads available'))
           : RefreshIndicator(
-        onRefresh: _getListMaintainRoad,
+        onRefresh: _getListDamageRoad,
         child: ListView.builder(
-          itemCount: _maintainRoads!.length,
+          itemCount: _damageRoads!.length,
           itemBuilder: (BuildContext context, int index) {
-            final road = _maintainRoads![index];
-            final endDate = DateTime.parse(road['endDate']);
-            final isExpired = endDate.isBefore(DateTime.now());
+            final damage = _damageRoads![index];
 
             return GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => MaintainRoadDetailScreen(
-                      sourceName: road['sourceName'],
-                      destinationName: road['destinationName'],
-                      locationA: _parseLatLng(road['locationA']),
-                      locationB: _parseLatLng(road['locationB']),
-                      dateMaintain: road['dateMaintain'],
-                      startDate: road['startDate'],
-                      endDate: road['endDate'],
+                    builder: (context) => DamageRoadDetailScreen(
+                      name: damage['name'],
+                      sourceName: damage['sourceName'],
+                      destinationName: damage['destinationName'],
+                      locationA: _parseLatLng(damage['locationA']),
+                      locationB: _parseLatLng(damage['locationB']),
+                      dateDamage: damage['createdAt'],
                     ),
                   ),
                 );
@@ -104,7 +101,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                 margin: const EdgeInsets.all(8.0),
                 padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
-                  color: isExpired ? Colors.red.shade100 : Colors.white,
+                  color:  Colors.white,
                   border: Border.all(color: Colors.blue),
                   borderRadius: BorderRadius.circular(8.0),
                 ),
@@ -114,12 +111,14 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Source: ${road['sourceName']}'),
-                          Text('Destination: ${road['destinationName']}'),
-                          Text('Location A: ${road['locationA']}'),
-                          Text('Location B: ${road['locationB']}'),
+                          Text('ID: ${damage['_id']}'),
+                          Text('Name: ${damage['name']}'),
+                          Text('Source: ${damage['sourceName']}'),
+                          Text('Destination: ${damage['destinationName']}'),
+                          Text('Location A: ${damage['locationA']}'),
+                          Text('Location B: ${damage['locationB']}'),
                           Text(
-                            'Date Maintain: ${road['dateMaintain']} days (${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['startDate']))} - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['endDate']))})',
+                            'Date Damage: ${DateFormat('yyyy-MM-dd HH:mm:ss ').format(DateTime.parse(damage['createdAt']))} ',
                           ),
                         ],
                       ),
@@ -133,9 +132,9 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => EditScreen(
-                                  item: road,
-                                  type: 'maintain',
-                                  onUpdate: _getListMaintainRoad,
+                                  item: damage,
+                                  type: 'damage',
+                                  onUpdate: _getListDamageRoad,
                                 ),
                               ),
                             );
@@ -148,7 +147,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                               context: context,
                               builder: (BuildContext context) => AlertDialog(
                                 title: const Text('Xác nhận xóa'),
-                                content: const Text('Bạn có chắc chắn muốn xóa bảo trì này không?'),
+                                content: const Text('Bạn có chắc chắn muốn xóa đoạn ngập lụt này không?'),
                                 actions: <Widget>[
                                   TextButton(
                                     child: const Text('Huỷ'),
@@ -163,7 +162,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                             );
 
                             if (confirmDelete == true) {
-                              _deleteMaintainRoad(road['_id']);
+                              _deleteDamageRoad(damage['_id']);
                             }
                           },
                         ),
@@ -182,8 +181,8 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
-                title: const Text('Total Maintain Roads'),
-                content: Text('Total number of maintain roads: $_total'),
+                title: const Text('Total Damage Roads'),
+                content: Text('Total number of maintain damages: $_total'),
                 actions: <Widget>[
                   TextButton(
                     child: const Text('OK'),
