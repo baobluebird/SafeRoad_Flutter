@@ -14,6 +14,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:pothole/ipconfig/ip.dart';
 import 'package:pothole/screens/detection/send_detection.dart';
 import '../../services/detection_service.dart';
+import '../detection/search.dart';
 
 class MapUserScreen extends StatefulWidget {
   const MapUserScreen({Key? key}) : super(key: key);
@@ -461,6 +462,38 @@ class MapUserScreenState extends State<MapUserScreen> {
       ),
       floatingActionButton: Stack(
         children: <Widget>[
+
+          Positioned(
+            bottom:220.0,
+            right: -4,
+            child: FloatingActionButton(
+              heroTag: 'Reload Data Map',
+              mini: true,
+              shape: const CircleBorder(),
+              backgroundColor: Color(0xFFFFFFFF),
+              onPressed: _reloadData,
+              tooltip: 'Reload Data',
+              child: Icon(Icons.refresh),
+            ),
+          ),
+          Positioned(
+            bottom: 175.0,
+            right: -4,
+            child: FloatingActionButton(
+              heroTag: 'Search',
+              mini: true,
+              shape: const CircleBorder(),
+              backgroundColor: Color(0xFFFFFFFF),
+              onPressed: (){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SearchScreen(isAdmin: false)),
+                );
+              },
+              tooltip: 'Search Data',
+              child: Icon(Icons.search),
+            ),
+          ),
           Positioned(
             bottom: 130.0,
             right: -4,
@@ -493,19 +526,7 @@ class MapUserScreenState extends State<MapUserScreen> {
                   width: 30, height: 30),
             ),
           ),
-          Positioned(
-            bottom: 175.0,
-            right: -4,
-            child: FloatingActionButton(
-              heroTag: 'Reload Data Map',
-              mini: true,
-              shape: const CircleBorder(),
-              backgroundColor: Color(0xFFFFFFFF),
-              onPressed: _reloadData,
-              tooltip: 'Reload Data',
-              child: Icon(Icons.refresh),
-            ),
-          ),
+
           Positioned(
               bottom: 10.0,
               left: 25,

@@ -133,9 +133,6 @@ class _VideoScreenState extends State<VideoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('RTSP Player'),
-      ),
       body: SingleChildScrollView(
         child: Column(
           children: [

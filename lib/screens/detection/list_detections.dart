@@ -86,7 +86,7 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
                 Tab(icon: _largeHoleIcon, text: 'Ổ gà'),
                 Tab(icon: _largeCrackIcon, text: 'Vết Nứt'),
                 Tab(icon: _maintainIcon, text: 'Bảo trì'),
-                Tab(icon: _damageIcon, text: 'Damage'),
+                Tab(icon: _damageIcon, text: 'Sự cố'),
                 Tab(icon: const Icon(Icons.search), text: 'Search'),
               ],
             ),
@@ -98,7 +98,7 @@ class _ListDetectionScreenState extends State<ListDetectionScreen> with SingleTi
                   CrackScreen(),
                   MaintainRoadScreen(),
                   DamageRoadScreen(),
-                  SearchScreen()
+                  SearchScreen(isAdmin: true)
                 ],
               ),
             )

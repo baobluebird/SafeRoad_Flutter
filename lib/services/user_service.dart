@@ -113,6 +113,33 @@ class ForgotPasswordService {
   }
 }
 
+class VerifyEmailService {
+  static Future<Map<String, dynamic>> sendEmailVerify(String email) async {
+    final Map<String, dynamic> requestBody = {
+      "email": email,
+    };
+    print(email);
+    try {
+      final response = await http.post(
+        Uri.parse('$ip/code/create-code-verify-email'),
+        body: jsonEncode(requestBody),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        return responseBody;
+      } else {
+        print('Error: ${response.statusCode}');
+        return {'status': 'error', 'message': 'Server error'};
+      }
+    } catch (error) {
+      print('Error: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
 class ResendCodeService {
   static Future<Map<String, dynamic>> resendCode(String email) async {
     print(email);
@@ -122,7 +149,7 @@ class ResendCodeService {
 
     try {
       final response = await http.post(
-        Uri.parse('$ip/code/resend-code'),
+        Uri.parse('$ip/code/create-code'),
         body: jsonEncode(requestBody),
         headers: {'Content-Type': 'application/json'},
       );
@@ -149,6 +176,32 @@ class VerifyCodeService {
     try {
       final response = await http.post(
         Uri.parse('$ip/code/verify-code/$id'),
+        body: jsonEncode(requestBody),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        return responseBody;
+      } else {
+        print('Error: ${response.statusCode}');
+        return {'status': 'error', 'message': 'Server error'};
+      }
+    } catch (error) {
+      print('Error: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
+class VerifyCodeEmailService {
+  static Future<Map<String, dynamic>> verifyCodeEmail(String id, String code) async {
+    final Map<String, dynamic> requestBody = {
+      "code": code,
+    };
+    try {
+      final response = await http.post(
+        Uri.parse('$ip/code/verify-code-email/$id'),
         body: jsonEncode(requestBody),
         headers: {'Content-Type': 'application/json'},
       );

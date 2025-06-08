@@ -1324,7 +1324,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
                   color: Colors.blue,
                 ),
                 child: Text(
-                  'Danh sách hư hỏng đường: $_totalDamage',
+                  'Danh sách sự cố đường: $_totalDamage',
                   style: GoogleFonts.beVietnamPro(
                     textStyle: const TextStyle(
                       fontSize: 23,

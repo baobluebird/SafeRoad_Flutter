@@ -12,7 +12,8 @@ import 'package:pothole/services/detection_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'; // Added for LatLng
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final bool isAdmin;
+  const SearchScreen({Key? key, required this.isAdmin}) : super(key: key);
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -324,8 +325,11 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.isAdmin
+          ? null
+          : AppBar(
         title: Text('Tìm kiếm', style: GoogleFonts.beVietnamPro()),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -339,7 +343,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 DropdownMenuItem(value: 'hole', child: Text('Ổ gà')),
                 DropdownMenuItem(value: 'crack', child: Text('Vết nứt')),
                 DropdownMenuItem(value: 'maintain', child: Text('Bảo trì')),
-                DropdownMenuItem(value: 'damage', child: Text('Hư hỏng')),
+                DropdownMenuItem(value: 'damage', child: Text('Sự cố')),
               ],
               onChanged: (value) {
                 setState(() {

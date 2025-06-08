@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import '../screens/tab/map.dart';
 import '../screens/tab/map_for_user.dart';
@@ -70,7 +71,17 @@ class _UserHomeState extends State<UserHome> {
       canPop: false,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Road Safety'),
+          backgroundColor: Colors.white60,
+          centerTitle: true,
+          title: Text('DUTSAFEROAD',
+            style: GoogleFonts.bebasNeue(
+              textStyle: const TextStyle(
+                fontSize: 30,
+                color: Colors.black,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
         ),
         drawer: Drawer(
           child: ListView(

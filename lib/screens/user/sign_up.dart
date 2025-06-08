@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pothole/screens/user/sign_in.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:pothole/screens/user/signup_otp_verification.dart';
 
 import '../../components/text_form_field.dart';
 import '../../model/user.dart';
 import '../../services/user_service.dart';
+import 'otp_verification.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -30,6 +32,8 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
   bool isError = true;
   String serverMessage = '';
+
+
 
   Future<void> _signUpWithGoogle() async {
     try {
@@ -93,31 +97,44 @@ class _SignupScreenState extends State<SignupScreen> {
         confirmPassword: _confirmPasswordController.text,
         phone: _phoneController.text,
       );
+
       try {
-        final response = await SignUpService.signUp(user!);
-        if (response['status'] == "OK") {
-          setState(() {
-            serverMessage = response["message"];
-            isError = false;
-          });
-          print('Create successful');
+        final response = await VerifyEmailService.sendEmailVerify(user!.email);
+        if (response['status'] == 'OK') {
+          final String? codeId = response['id'];
+          if (codeId != null) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => SignupOTPVerificationScreen(
+                  email: user!.email,
+                  id: codeId,
+                  user: user!,
+                ),
+              ),
+            );
+            return;
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Không lấy được ID từ server'), backgroundColor: Colors.red),
+            );
+          }
         } else {
-          print(response);
-          setState(() {
-            serverMessage = response['message'];
-            isError = true;
-          });
-          print('Create failed: ${response['message']}');
+          serverMessage = response['message'];
+          isError = true;
         }
       } catch (error) {
-        setState(() {
-          serverMessage = 'Error: $error';
-          isError = true;
-        });
-        print('Error: $error');
+        serverMessage = 'Lỗi: $error';
+        isError = true;
+      }
+
+      if (serverMessage.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(serverMessage), backgroundColor: Colors.red),
+        );
       }
     }
   }
+
 
   bool showPass = true;
   bool showConfirm = true;
@@ -249,30 +266,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                   _isLoading = true;
                                 });
                                 await _signUp();
-                                if (!isError) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(serverMessage),
-                                      duration: const Duration(seconds: 1),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => const SigninScreen(),
-                                    ));
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(serverMessage),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                                setState(() {
-                                  _isLoading = false;
-                                });
+                                setState(() => _isLoading = false);
+                                // 👉 Không cần thêm SnackBar ở đây nữa (đã xử lý trong _signUp)
                               }
                             }else{
                               ScaffoldMessenger.of(context).showSnackBar(

@@ -113,9 +113,10 @@ class _DamageRoadDetailScreenState extends State<DamageRoadDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text('Name: ${widget.name}'),
                 Text('Source: ${widget.sourceName}'),
                 Text('Destination: ${widget.destinationName}'),
-                Text('Date Damage: ${widget.dateDamage}'),
+                Text('Date Damage: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(widget.dateDamage))}'),
               ],
             ),
           ),
