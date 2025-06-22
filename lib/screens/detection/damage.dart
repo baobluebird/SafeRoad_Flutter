@@ -5,7 +5,7 @@ import 'package:pothole/ipconfig/ip.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pothole/screens/detection/damage_detail.dart';
-
+import '../../services/detection_service.dart';
 import 'edit_screen.dart';
 
 class DamageRoadScreen extends StatefulWidget {
@@ -18,20 +18,24 @@ class DamageRoadScreen extends StatefulWidget {
 class _DamageRoadState extends State<DamageRoadScreen> {
   List<dynamic>? _damageRoads;
   int _total = 0;
+  String _sortBy = 'newest'; // Mặc định sắp xếp theo newest
 
-  Future<void> _getListDamageRoad() async {
-    var url = Uri.parse('$ip/detection/get-damage-road');
-    var response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body)['data'];
+  Future<void> _fetchDamageRoads({String? sortBy}) async {
+    final Map<String, dynamic> response = sortBy != null
+        ? await getSortService.getSorted('damage', sortBy)
+        : await getListDamageRoadsService.getListDamageRoads();
+    if (response['status'] == 'OK') {
       setState(() {
-        _damageRoads = data;
-        _total = data.length;
+        _damageRoads = response['data'] is String && response['data'] == 'null' ? [] : response['data'];
+        _total = response['total'] is int ? response['total'] : _damageRoads?.length ?? 0;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch routes from server')));
+        SnackBar(
+          content: Text('Error: ${response['message'] ?? 'Failed to fetch damage roads'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -43,18 +47,18 @@ class _DamageRoadState extends State<DamageRoadScreen> {
     if (response.statusCode == 200) {
       setState(() {
         _damageRoads!.removeWhere((damage) => damage['_id'] == id);
-        _total--;
+        _total = _damageRoads!.length; // Update total after deletion
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Damage road deleted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete maintain road.'),
+        const SnackBar(
+          content: Text('Failed to delete damage road.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -64,23 +68,52 @@ class _DamageRoadState extends State<DamageRoadScreen> {
   @override
   void initState() {
     super.initState();
-    _getListDamageRoad();
+    _fetchDamageRoads(); // Lấy danh sách mặc định (newest)
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _damageRoads == null
-          ? const Center(child: CircularProgressIndicator())
-          : _damageRoads!.isEmpty
-          ? const Center(child: Text('No damage roads available'))
-          : RefreshIndicator(
-        onRefresh: _getListDamageRoad,
-        child: ListView.builder(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _sortBy,
+              icon: const Icon(Icons.sort, color: Colors.blue),
+              dropdownColor: Colors.white,
+              style: const TextStyle(color: Colors.blue, fontSize: 16, fontWeight: FontWeight.bold),
+              underline: Container(height: 2, color: Colors.blue),
+              onChanged: (String? newValue) {
+                if (newValue != null && newValue != _sortBy) {
+                  setState(() {
+                    _sortBy = newValue;
+                  });
+                  _fetchDamageRoads(sortBy: newValue);
+                }
+              },
+              items: <String>['newest', 'oldest']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value == 'newest' ? 'Newest' : 'Oldest'),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _fetchDamageRoads(sortBy: _sortBy),
+        child: _damageRoads == null
+            ? const Center(child: CircularProgressIndicator())
+            : _damageRoads!.isEmpty
+            ? const Center(child: Text('No damage roads available'))
+            : ListView.builder(
           itemCount: _damageRoads!.length,
           itemBuilder: (BuildContext context, int index) {
             final damage = _damageRoads![index];
-
             return GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -101,7 +134,7 @@ class _DamageRoadState extends State<DamageRoadScreen> {
                 margin: const EdgeInsets.all(8.0),
                 padding: const EdgeInsets.all(8.0),
                 decoration: BoxDecoration(
-                  color:  Colors.white,
+                  color: Colors.white,
                   border: Border.all(color: Colors.blue),
                   borderRadius: BorderRadius.circular(8.0),
                 ),
@@ -118,7 +151,7 @@ class _DamageRoadState extends State<DamageRoadScreen> {
                           Text('Location A: ${damage['locationA']}'),
                           Text('Location B: ${damage['locationB']}'),
                           Text(
-                            'Date Damage: ${DateFormat('yyyy-MM-dd HH:mm:ss ').format(DateTime.parse(damage['createdAt']))} ',
+                            'Date Damage: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(damage['createdAt']).toLocal())}',
                           ),
                         ],
                       ),
@@ -134,7 +167,7 @@ class _DamageRoadState extends State<DamageRoadScreen> {
                                 builder: (context) => EditScreen(
                                   item: damage,
                                   type: 'damage',
-                                  onUpdate: _getListDamageRoad,
+                                  onUpdate: () => _fetchDamageRoads(sortBy: _sortBy),
                                 ),
                               ),
                             );
@@ -147,7 +180,7 @@ class _DamageRoadState extends State<DamageRoadScreen> {
                               context: context,
                               builder: (BuildContext context) => AlertDialog(
                                 title: const Text('Xác nhận xóa'),
-                                content: const Text('Bạn có chắc chắn muốn xóa đoạn ngập lụt này không?'),
+                                content: const Text('Bạn có chắc muốn xóa đoạn ngập lụt này không?'),
                                 actions: <Widget>[
                                   TextButton(
                                     child: const Text('Huỷ'),
@@ -182,7 +215,7 @@ class _DamageRoadState extends State<DamageRoadScreen> {
             builder: (BuildContext context) {
               return AlertDialog(
                 title: const Text('Total Damage Roads'),
-                content: Text('Total number of maintain damages: $_total'),
+                content: Text('Total number of damage roads: $_total'),
                 actions: <Widget>[
                   TextButton(
                     child: const Text('OK'),
@@ -208,9 +241,8 @@ class _DamageRoadState extends State<DamageRoadScreen> {
     );
   }
 
-
   LatLng _parseLatLng(String latLngString) {
     final parts = latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
-    return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    return LatLng(double.parse(parts[0].trim()), double.parse(parts[1].trim()));
   }
 }

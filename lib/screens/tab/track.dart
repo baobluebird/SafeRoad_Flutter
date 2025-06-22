@@ -24,7 +24,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   late Position _currentPosition;
   List<dynamic> largeHoles = [];
   List<dynamic> maintainRoad = [];
-  List<dynamic> floodRoad = [];
+  List<dynamic> damageRoad = [];
   LatLng? _selectedPosition;
   int _currentHoleIndex = 0;
   Set<Marker> _markers = {};
@@ -36,7 +36,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
   late BitmapDescriptor _userIcon;
   late BitmapDescriptor _largeHoleIcon;
   late BitmapDescriptor _maintainRoadIcon;
-  late BitmapDescriptor _floodRoadIcon;
+  late BitmapDescriptor _damageRoadIcon;
   bool _isWarningDisplayed = false;
   Map<int, Set<String>> _holeWarnings = {};
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -58,7 +58,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       _currentDistance = 0;
       largeHoles = [];
       maintainRoad = [];
-      floodRoad = [];
+      damageRoad = [];
       _holeWarnings.clear();
     });
     FocusScope.of(context).unfocus();
@@ -105,8 +105,8 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
       'assets/images/fix_road.png',
       160,
     );
-    final Uint8List flood = await getBytesFromAsset(
-      'assets/images/flood.png',
+    final Uint8List damage = await getBytesFromAsset(
+      'assets/images/damage.png',
       160,
     );
     final Uint8List largeHole = await getBytesFromAsset(
@@ -119,7 +119,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _userIcon = BitmapDescriptor.fromBytes(location);
         _largeHoleIcon = BitmapDescriptor.fromBytes(largeHole);
         _maintainRoadIcon = BitmapDescriptor.fromBytes(maintain);
-        _floodRoadIcon = BitmapDescriptor.fromBytes(flood);
+        _damageRoadIcon = BitmapDescriptor.fromBytes(damage);
       });
     }
   }
@@ -170,7 +170,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
               (marker) =>
               marker.markerId.value.contains('largeHole') ||
               marker.markerId.value.contains('maintainRoad')||
-          marker.markerId.value.contains('floodRoad'),
+          marker.markerId.value.contains('damageRoad'),
         );
         _markers.add(
           Marker(
@@ -214,20 +214,20 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           );
           maintainRoadIndex++;
         }
-        int floodRoadIndex = 0;
-        for (var item in floodRoad) {
+        int damageRoadIndex = 0;
+        for (var item in damageRoad) {
           _markers.add(
             Marker(
-              markerId: MarkerId('floodRoad$floodRoadIndex'),
+              markerId: MarkerId('damageRoad$damageRoadIndex'),
               position: LatLng(item[0], item[1]),
               infoWindow: InfoWindow(
                 title: 'Đường ngập lụt',
                 snippet: 'Hãy cẩn thận!',
               ),
-              icon: _floodRoadIcon,
+              icon: _damageRoadIcon,
             ),
           );
-          floodRoadIndex++;
+          damageRoadIndex++;
         }
         if (_selectedPosition != null) {
           _markers.add(
@@ -481,13 +481,13 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         final responseData = jsonDecode(response.body);
         List<dynamic> hole = responseData['matchingCoordinatesHole'] ?? [];
         List<dynamic> maintain = responseData['matchingCoordinatesMaintainRoad'] ?? [];
-        List <dynamic> flood = responseData['matchingCoordinatesFloodRoad'] ?? [];
+        List <dynamic> damage = responseData['matchingCoordinatesDamageRoad'] ?? [];
 
         if (_isMounted) {
           setState(() {
             largeHoles = hole;
             maintainRoad = maintain;
-            floodRoad = flood;
+            damageRoad = damage;
             _currentHoleIndex = 0;
             _holeWarnings.clear();
           });
@@ -496,7 +496,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           return;
         }
 
-        if (maintain.isEmpty && flood.isEmpty) {
+        if (maintain.isEmpty && damage.isEmpty) {
           print('Không có bảo trì, xóa tuyến cũ và vẽ tuyến mới');
           if (_isMounted) {
             setState(() {
@@ -682,15 +682,15 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           if (serverResponse.statusCode == 200) {
             final responseData = jsonDecode(serverResponse.body);
             List<dynamic> maintain = responseData['matchingCoordinatesMaintainRoad'] ?? [];
-            List<dynamic> flood = responseData['matchingCoordinatesFloodRoad'] ?? [];
+            List<dynamic> damage = responseData['matchingCoordinatesDamageRoad'] ?? [];
             allRoutes.add({
               'index': i + 1,
               'route': route,
               'polyline': route['overview_polyline']['points'],
               'maintain': maintain,
-              'flood': flood,
+              'damage': damage,
             });
-            if (maintain.isEmpty && flood.isEmpty) {
+            if (maintain.isEmpty && damage.isEmpty) {
               validRoutes.add({
                 'index': i + 1,
                 'route': route,
@@ -745,7 +745,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
                   final route = routeData['route'];
                   final routeIndex = routeData['index'];
                   final maintain = routeData['maintain'] ?? [];
-                  final flood = routeData['flood'] ?? [];
+                  final damage = routeData['damage'] ?? [];
                   final distance = route['legs'][0]['distance']['text'];
                   final duration = route['legs'][0]['duration']['text'];
                   final subtitle = maintain.isEmpty
@@ -876,19 +876,19 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
           final responseData = jsonDecode(response.body);
           List<dynamic> Hole = responseData['matchingCoordinatesHole'] ?? [];
           List<dynamic> MaintainRoad = responseData['matchingCoordinatesMaintainRoad'] ?? [];
-          List<dynamic> FloodRoad = responseData['matchingCoordinatesFloodRoad'] ?? [];
+          List<dynamic> DamageRoad = responseData['matchingCoordinatesDamageRoad'] ?? [];
 
           if (_isMounted) {
             setState(() {
               largeHoles = Hole;
               maintainRoad = MaintainRoad;
-              floodRoad = FloodRoad;
+              damageRoad = DamageRoad;
               _currentHoleIndex = 0;
               _holeWarnings.clear();
             });
           }
           _updateMarkers();
-          if (maintainRoad.isNotEmpty || floodRoad.isNotEmpty) {
+          if (maintainRoad.isNotEmpty || damageRoad.isNotEmpty) {
             await _showMaintenanceWarningDialog();
           } else if (largeHoles.isEmpty) {
             if (_isMounted) {
@@ -1016,7 +1016,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
               (marker) =>
           marker.markerId.value.contains('largeHole') ||
               marker.markerId.value.contains('maintainRoad') ||
-          marker.markerId.value.contains('floodRoad') ||
+          marker.markerId.value.contains('damageRoad') ||
               marker.markerId.value == 'selectedLocation',
         );
         _polylines.clear();
@@ -1025,7 +1025,7 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
         _currentDistance = 0;
         largeHoles = [];
         maintainRoad = [];
-        floodRoad = [];
+        damageRoad = [];
         _holeWarnings.clear();
       });
     }

@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import '../../model/detection.dart';
 import '../../services/detection_service.dart';
 import 'package:intl/intl.dart';
-
 import 'detection_for_detail.dart';
 import 'edit_screen.dart';
 
@@ -21,22 +20,24 @@ class _CrackScreenState extends State<CrackScreen> {
   List<dynamic>? _detections;
   late Detection? detection;
   int _total = 0;
+  String _sortBy = 'newest'; // Mặc định sắp xếp theo newest
 
-  Future<void> _getListCracks() async {
-    final Map<String, dynamic> response = await getListCracksService.getListCracks();
+  Future<void> _fetchCracks({String? sortBy}) async {
+    final Map<String, dynamic> response = sortBy != null
+        ? await getSortService.getSorted('crack', sortBy)
+        : await getListCracksService.getListCracks();
     if (response['status'] == 'OK') {
-      if (response['data'] is String && response['data'] == 'null') {
-        setState(() {
-          _detections = [];
-        });
-      } else {
-        setState(() {
-          _detections = response['data'];
-          _total = response['total'];
-        });
-      }
+      setState(() {
+        _detections = response['data'] is String && response['data'] == 'null' ? [] : response['data'];
+        _total = response['total'] is int ? response['total'] : _detections?.length ?? 0;
+      });
     } else {
-      print('Error occurred: ${response['message']}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${response['message'] ?? 'Failed to fetch data'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -45,24 +46,25 @@ class _CrackScreenState extends State<CrackScreen> {
     if (response['status'] == 'OK') {
       final Map<String, dynamic> detectionData = response['data'];
       detection = Detection.fromJson(detectionData);
-
-      String? imageData; // Đổi imageData thành kiểu String có thể null
-      if (response['image'] != null) {
-        imageData = response['image'];
-      }
+      String? imageData = response['image'];
       if (imageData != null) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => DetectionForDetailScreen(
               detection: detection,
-              imageData: imageData!,
+              imageData: imageData,
             ),
           ),
         );
       }
     } else {
-      print('Error occurred: ${response['message']}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${response['message'] ?? 'Failed to fetch details'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -74,17 +76,17 @@ class _CrackScreenState extends State<CrackScreen> {
     if (response.statusCode == 200) {
       setState(() {
         _detections!.removeWhere((crack) => crack['_id'] == id);
-        _total--;
+        _total = _detections!.length ?? 0; // Update total after deletion
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Crack deleted successfully!'),
+        const SnackBar(
+          content: Text('Crack đã được deleted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Failed to delete crack.'),
           backgroundColor: Colors.red,
         ),
@@ -95,19 +97,49 @@ class _CrackScreenState extends State<CrackScreen> {
   @override
   void initState() {
     super.initState();
-    _getListCracks();
+    _fetchCracks(); // Lấy danh sách mặc định (newest)
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _detections == null
-          ? const Center(child: CircularProgressIndicator())
-          : _detections!.isEmpty
-          ? const Center(child: Text('No detection available'))
-          : RefreshIndicator(
-        onRefresh: _getListCracks, // Gọi hàm để tải lại dữ liệu
-        child: ListView.builder(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _sortBy,
+              icon: const Icon(Icons.sort, color: Colors.blue),
+              dropdownColor: Colors.white,
+              style: const TextStyle(color: Colors.blue, fontSize: 16, fontWeight: FontWeight.bold),
+              underline: Container(height: 2, color: Colors.blue),
+              onChanged: (String? newValue) {
+                if (newValue != null && newValue != _sortBy) {
+                  setState(() {
+                    _sortBy = newValue;
+                  });
+                  _fetchCracks(sortBy: newValue);
+                }
+              },
+              items: <String>['newest', 'oldest']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value == 'newest' ? 'Newest' : 'Oldest'),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _fetchCracks(sortBy: _sortBy),
+        child: _detections == null
+            ? const Center(child: CircularProgressIndicator())
+            : _detections!.isEmpty
+            ? const Center(child: Text('No cracks available'))
+            : ListView.builder(
           itemCount: _detections!.length,
           itemBuilder: (BuildContext context, int index) {
             final crack = _detections![index];
@@ -125,7 +157,7 @@ class _CrackScreenState extends State<CrackScreen> {
                 child: Row(
                   children: [
                     Image.network(
-                      crack['image'],
+                      crack['image'] ?? '',
                       width: 50,
                       height: 50,
                       errorBuilder: (context, error, stackTrace) {
@@ -141,9 +173,9 @@ class _CrackScreenState extends State<CrackScreen> {
                           Text('User Id post: ${crack['user']}'),
                           Text('Location: ${crack['location']}'),
                           Text('Address: ${crack['address']}'),
-                          Text('Description: ${crack['description']}'),
+                          Text('Description: ${crack['description'] ?? 'N/A'}'),
                           Text(
-                            'Time detect: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(crack['createdAt']))}',
+                            'Time detect: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(crack['createdAt']).toLocal())}',
                           ),
                         ],
                       ),
@@ -159,7 +191,7 @@ class _CrackScreenState extends State<CrackScreen> {
                                 builder: (context) => EditScreen(
                                   item: crack,
                                   type: 'crack',
-                                  onUpdate: _getListCracks, // Sửa callback
+                                  onUpdate: () => _fetchCracks(sortBy: _sortBy),
                                 ),
                               ),
                             );

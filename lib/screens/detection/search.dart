@@ -9,7 +9,8 @@ import 'package:pothole/screens/detection/damage_detail.dart';
 import 'package:pothole/screens/detection/detection_for_detail.dart';
 import 'package:pothole/screens/detection/road_detail.dart';
 import 'package:pothole/services/detection_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Added for LatLng
+import 'package:pothole/screens/detection/edit_screen.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class SearchScreen extends StatefulWidget {
   final bool isAdmin;
@@ -21,7 +22,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedType = 'hole'; // Default type
+  String _selectedType = 'hole';
   List<dynamic> _searchResults = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -82,232 +83,68 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  Future<void> _deleteItem(String id, String type) async {
+    String endpoint = '';
+    switch (type) {
+      case 'hole':
+        endpoint = 'delete-hole';
+        break;
+      case 'crack':
+        endpoint = 'delete-crack';
+        break;
+      case 'maintain':
+        endpoint = 'delete-maintain';
+        break;
+      case 'damage':
+        endpoint = 'delete-damage';
+        break;
+    }
+
+    final response = await http.delete(Uri.parse('$ip/detection/$endpoint/$id'));
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _searchResults.removeWhere((item) => item['_id'] == id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xóa thành công!'), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xóa thất bại!'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _getDetailHole(String id) async {
     final response = await getDetailHoleService.getDetailHole(id);
     if (response['status'] == 'OK') {
-      final detectionData = response['data'];
-      final detection = Detection.fromJson(detectionData);
+      final detection = Detection.fromJson(response['data']);
       String? imageData = response['image'];
       if (imageData != null) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetectionForDetailScreen(
-              detection: detection,
-              imageData: imageData,
-            ),
+            builder: (context) => DetectionForDetailScreen(detection: detection, imageData: imageData),
           ),
         );
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: ${response['message']}')),
-      );
     }
   }
 
   Future<void> _getDetailCrack(String id) async {
     final response = await getDetailCrackService.getDetailCrack(id);
     if (response['status'] == 'OK') {
-      final detectionData = response['data'];
-      final detection = Detection.fromJson(detectionData);
+      final detection = Detection.fromJson(response['data']);
       String? imageData = response['image'];
       if (imageData != null) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => DetectionForDetailScreen(
-              detection: detection,
-              imageData: imageData,
-            ),
+            builder: (context) => DetectionForDetailScreen(detection: detection, imageData: imageData),
           ),
         );
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: ${response['message']}')),
-      );
-    }
-  }
-
-  Widget _buildListItem(dynamic item) {
-    if (_selectedType == 'hole' || _selectedType == 'crack') {
-      return ListTile(
-        title: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Colors.blueAccent, width: 0.5),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item['address'] ?? 'Không có địa chỉ',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Loại: ${item['name']}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                'Mô tả: ${item['description'] ?? 'Không có mô tả'}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Tạo: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(item['createdAt']))}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.blueAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        onTap: () {
-          if (_selectedType == 'hole') {
-            _getDetailHole(item['_id']);
-          } else {
-            _getDetailCrack(item['_id']);
-          }
-        },
-      );
-    } else if (_selectedType == 'damage') {
-      return ListTile(
-        title: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Colors.blueAccent, width: 0.5),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item['name'] ?? 'Không có tên',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                'Nguồn: ${item['sourceName'] ?? 'Không có nguồn'}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Đích: ${item['destinationName'] ?? 'Không có đích'}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Tạo: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(item['createdAt']))}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.blueAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DamageRoadDetailScreen(
-                name: item['name'] ?? '',
-                sourceName: item['sourceName'] ?? '',
-                destinationName: item['destinationName'] ?? '',
-                locationA: _parseLatLng(item['locationA'] ?? ''),
-                locationB: _parseLatLng(item['locationB'] ?? ''),
-                dateDamage: item['createdAt'],
-              ),
-            ),
-          );
-        },
-      );
-    } else {
-      // maintain
-      return ListTile(
-        title: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Colors.blueAccent, width: 0.5),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Nguồn: ${item['sourceName'] ?? ''}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Đích: ${item['destinationName'] ?? ''}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-              Text(
-                'Số ngày bảo trì: ${item['dateMaintain']}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.blueAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                'Từ: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(item['startDate']))} - '
-                    'Đến: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(item['endDate']))}',
-                style: GoogleFonts.beVietnamPro(
-                  textStyle: const TextStyle(fontSize: 13, color: Colors.black),
-                ),
-              ),
-            ],
-          ),
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MaintainRoadDetailScreen(
-                sourceName: item['sourceName'] ?? '',
-                destinationName: item['destinationName'] ?? '',
-                locationA: _parseLatLng(item['locationA'] ?? ''),
-                locationB: _parseLatLng(item['locationB'] ?? ''),
-                dateMaintain: item['dateMaintain'],
-                startDate: item['startDate'],
-                endDate: item['endDate'],
-              ),
-            ),
-          );
-        },
-      );
     }
   }
 
@@ -316,11 +153,127 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final parts = latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
       return LatLng(double.parse(parts[0].trim()), double.parse(parts[1].trim()));
-    } catch (e) {
-      print('Error parsing LatLng: $e');
-      return const LatLng(0, 0); // Fallback coordinates
+    } catch (_) {
+      return const LatLng(0, 0);
     }
   }
+
+  Widget _buildListItem(dynamic item) {
+    return Container(
+      margin: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.blue),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                if (_selectedType == 'hole') {
+                  _getDetailHole(item['_id']);
+                } else if (_selectedType == 'crack') {
+                  _getDetailCrack(item['_id']);
+                } else if (_selectedType == 'damage') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DamageRoadDetailScreen(
+                        name: item['name'] ?? '',
+                        sourceName: item['sourceName'] ?? '',
+                        destinationName: item['destinationName'] ?? '',
+                        locationA: _parseLatLng(item['locationA'] ?? ''),
+                        locationB: _parseLatLng(item['locationB'] ?? ''),
+                        dateDamage: item['createdAt'],
+                      ),
+                    ),
+                  );
+                } else if (_selectedType == 'maintain') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MaintainRoadDetailScreen(
+                        sourceName: item['sourceName'] ?? '',
+                        destinationName: item['destinationName'] ?? '',
+                        locationA: _parseLatLng(item['locationA'] ?? ''),
+                        locationB: _parseLatLng(item['locationB'] ?? ''),
+                        dateMaintain: item['dateMaintain'],
+                        startDate: item['startDate'],
+                        endDate: item['endDate'],
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_selectedType == 'hole' || _selectedType == 'crack') ...[
+                    Text('Địa chỉ: ${item['address'] ?? 'Không có'}'),
+                    Text('Loại: ${item['name'] ?? ''}', style: const TextStyle(color: Colors.red)),
+                    Text('Mô tả: ${item['description'] ?? 'Không có'}'),
+                  ] else if (_selectedType == 'damage') ...[
+                    Text('Tên: ${item['name'] ?? ''}', style: const TextStyle(color: Colors.red)),
+                    Text('Nguồn: ${item['sourceName'] ?? ''}'),
+                    Text('Đích: ${item['destinationName'] ?? ''}'),
+                  ] else if (_selectedType == 'maintain') ...[
+                    Text('Nguồn: ${item['sourceName'] ?? ''}'),
+                    Text('Đích: ${item['destinationName'] ?? ''}'),
+                    Text('Số ngày bảo trì: ${item['dateMaintain']}'),
+                    Text('Từ: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(item['startDate']))} '
+                        '- Đến: ${DateFormat('yyyy-MM-dd').format(DateTime.parse(item['endDate']))}'),
+                  ],
+                  Text(
+                    'Tạo: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(item['createdAt']))}',
+                    style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (widget.isAdmin)
+            Column(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blue),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditScreen(
+                          item: item,
+                          type: _selectedType,
+                          onUpdate: () => _search(_searchController.text),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Xác nhận xóa'),
+                        content: const Text('Bạn có chắc chắn muốn xóa mục này không?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huỷ')),
+                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xoá')),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) await _deleteItem(item['_id'], _selectedType);
+                  },
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -334,11 +287,10 @@ class _SearchScreenState extends State<SearchScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DropdownButton<String>(
               value: _selectedType,
-              isExpanded: true, // Make dropdown fill available width
+              isExpanded: true,
               items: const [
                 DropdownMenuItem(value: 'hole', child: Text('Ổ gà')),
                 DropdownMenuItem(value: 'crack', child: Text('Vết nứt')),
@@ -352,20 +304,19 @@ class _SearchScreenState extends State<SearchScreen> {
                   _errorMessage = null;
                 });
               },
-              hint: Text('Chọn loại', style: GoogleFonts.beVietnamPro()),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '(Exams: 44 Gò Nảy 8, 2025-03, Large)',
+                hintText: '(VD: 44 Gò Nảy 8, 2025-03, Large)',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () => _search(_searchController.text),
                 ),
               ),
-              onSubmitted: (value) => _search(value),
+              onSubmitted: _search,
             ),
             const SizedBox(height: 16),
             if (_isLoading)

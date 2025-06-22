@@ -8,9 +8,7 @@ import '../ipconfig/ip.dart';
 class getListHolesService {
   static Future<Map<String, dynamic>> getListHoles() async {
     try {
-      var response = await http.get(
-        Uri.parse('$ip/detection/get-list-holes'),
-      );
+      var response = await http.get(Uri.parse('$ip/detection/get-list-holes'));
 
       if (response.statusCode == 200) {
         var decodedResponse = json.decode(response.body);
@@ -18,46 +16,12 @@ class getListHolesService {
         if (decodedResponse.containsKey('status') &&
             decodedResponse.containsKey('total') &&
             decodedResponse.containsKey('data') &&
-            decodedResponse.containsKey('message') ) {
+            decodedResponse.containsKey('message')) {
           return {
             'status': decodedResponse['status'],
             'total': decodedResponse['total'],
             'data': decodedResponse['data'],
-            'message': decodedResponse['message']
-          };
-        } else {
-            print('data null');
-          return {'status': 'OK', 'data': 'null'};
-        }
-      } else {
-        return {'status': 'error', 'message': 'Non-200 status code'};
-      }
-    } catch (error) {
-      print('Error: $error');
-      return {'status': 'error', 'message': 'Network error'};
-    }
-  }
-}
-
-class getListCracksService {
-  static Future<Map<String, dynamic>> getListCracks() async {
-    try {
-      var response = await http.get(
-        Uri.parse('$ip/detection/get-list-crack'),
-      );
-
-      if (response.statusCode == 200) {
-        var decodedResponse = json.decode(response.body);
-
-        if (decodedResponse.containsKey('status') &&
-            decodedResponse.containsKey('total') &&
-            decodedResponse.containsKey('data') &&
-            decodedResponse.containsKey('message') ) {
-          return {
-            'status': decodedResponse['status'],
-            'total': decodedResponse['total'],
-            'data': decodedResponse['data'],
-            'message': decodedResponse['message']
+            'message': decodedResponse['message'],
           };
         } else {
           print('data null');
@@ -72,6 +36,76 @@ class getListCracksService {
     }
   }
 }
+
+class getListDamageRoadsService {
+  static Future<Map<String, dynamic>> getListDamageRoads() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$ip/detection/get-damage-road'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'status': 'ERROR', 'message': 'Failed to fetch damage roads'};
+      }
+    } catch (e) {
+      return {'status': 'ERROR', 'message': e.toString()};
+    }
+  }
+}
+
+class getSortService {
+  static Future<Map<String, dynamic>> getSorted(
+    String type,
+    String sortBy,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$ip/detection/sort?type=$type&sortBy=$sortBy'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'status': 'ERROR', 'message': 'Failed to fetch sorted holes'};
+      }
+    } catch (e) {
+      return {'status': 'ERROR', 'message': e.toString()};
+    }
+  }
+}
+
+class getListCracksService {
+  static Future<Map<String, dynamic>> getListCracks() async {
+    try {
+      var response = await http.get(Uri.parse('$ip/detection/get-list-crack'));
+
+      if (response.statusCode == 200) {
+        var decodedResponse = json.decode(response.body);
+
+        if (decodedResponse.containsKey('status') &&
+            decodedResponse.containsKey('total') &&
+            decodedResponse.containsKey('data') &&
+            decodedResponse.containsKey('message')) {
+          return {
+            'status': decodedResponse['status'],
+            'total': decodedResponse['total'],
+            'data': decodedResponse['data'],
+            'message': decodedResponse['message'],
+          };
+        } else {
+          print('data null');
+          return {'status': 'OK', 'data': 'null'};
+        }
+      } else {
+        return {'status': 'error', 'message': 'Non-200 status code'};
+      }
+    } catch (error) {
+      print('Error: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
 class getDetailHoleService {
   static Future<Map<String, dynamic>> getDetailHole(String id) async {
     try {
@@ -83,13 +117,14 @@ class getDetailHoleService {
         var decodedResponse = json.decode(response.body);
 
         if (decodedResponse.containsKey('status') &&
-            decodedResponse.containsKey('data') && decodedResponse.containsKey('image') &&
-            decodedResponse.containsKey('message') ) {
+            decodedResponse.containsKey('data') &&
+            decodedResponse.containsKey('image') &&
+            decodedResponse.containsKey('message')) {
           return {
             'status': decodedResponse['status'],
             'data': decodedResponse['data'],
             'image': decodedResponse['image'],
-            'message': decodedResponse['message']
+            'message': decodedResponse['message'],
           };
         } else {
           return {'status': 'error', 'message': 'Unexpected response format'};
@@ -115,13 +150,14 @@ class getDetailCrackService {
         var decodedResponse = json.decode(response.body);
 
         if (decodedResponse.containsKey('status') &&
-            decodedResponse.containsKey('data') && decodedResponse.containsKey('image') &&
-            decodedResponse.containsKey('message') ) {
+            decodedResponse.containsKey('data') &&
+            decodedResponse.containsKey('image') &&
+            decodedResponse.containsKey('message')) {
           return {
             'status': decodedResponse['status'],
             'data': decodedResponse['data'],
             'image': decodedResponse['image'],
-            'message': decodedResponse['message']
+            'message': decodedResponse['message'],
           };
         } else {
           return {'status': 'error', 'message': 'Unexpected response format'};
@@ -139,15 +175,14 @@ class getDetailCrackService {
 class getListMaintainService {
   static Future<Map<String, dynamic>> getListMaintain() async {
     try {
-      final response = await http.get(Uri.parse('$ip/detection/get-maintain-road'));
+      final response = await http.get(
+        Uri.parse('$ip/detection/get-maintain-road'),
+      );
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         if (decoded.containsKey('data')) {
-          return {
-            'status': 'OK',
-            'data': decoded['data'],
-          };
+          return {'status': 'OK', 'data': decoded['data']};
         } else {
           return {'status': 'error', 'message': 'Invalid format'};
         }
@@ -164,15 +199,14 @@ class getListMaintainService {
 class getListMaintainForMapService {
   static Future<Map<String, dynamic>> getListMaintainForMap() async {
     try {
-      final response = await http.get(Uri.parse('$ip/detection/get-maintain-road-for-map'));
+      final response = await http.get(
+        Uri.parse('$ip/detection/get-maintain-road-for-map'),
+      );
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         if (decoded.containsKey('data')) {
-          return {
-            'status': 'OK',
-            'data': decoded['data'],
-          };
+          return {'status': 'OK', 'data': decoded['data']};
         } else {
           return {'status': 'error', 'message': 'Invalid format'};
         }
@@ -189,15 +223,14 @@ class getListMaintainForMapService {
 class getListDamageForMapService {
   static Future<Map<String, dynamic>> getListDamageForMap() async {
     try {
-      final response = await http.get(Uri.parse('$ip/detection/get-damage-road'));
+      final response = await http.get(
+        Uri.parse('$ip/detection/get-damage-road'),
+      );
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         if (decoded.containsKey('data')) {
-          return {
-            'status': 'OK',
-            'data': decoded['data'],
-          };
+          return {'status': 'OK', 'data': decoded['data']};
         } else {
           return {'status': 'error', 'message': 'Invalid format'};
         }
@@ -211,15 +244,43 @@ class getListDamageForMapService {
   }
 }
 
+class getListMaintainRoadsService {
+  static Future<Map<String, dynamic>> getListMaintainRoads() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$ip/detection/get-maintain-road'),
+      );
+
+      if (response.statusCode == 200) {
+        print('Response body: ${response.body}');
+        final decoded = json.decode(response.body);
+        if (decoded.containsKey('data')) {
+          return {'status': 'OK', 'data': decoded['data']};
+        } else {
+          return {'status': 'error', 'message': 'Invalid format'};
+        }
+      } else {
+        return {'status': 'error', 'message': 'Non-200 status code'};
+      }
+    } catch (error) {
+      print('Error: $error');
+      return {'status': 'error', 'message': 'Network error'};
+    }
+  }
+}
+
 class deleteDetectionService {
-  static Future<Map<String, dynamic>> deleteDetection(String detectionId, String nameList) async {
+  static Future<Map<String, dynamic>> deleteDetection(
+    String detectionId,
+    String nameList,
+  ) async {
     try {
       String url;
       if (nameList == 'Hole') {
         url = '$ip/detection/delete-hole/$detectionId';
       } else if (nameList == 'Crack') {
         url = '$ip/detection/delete-crack/$detectionId';
-      }else if (nameList == 'Damage') {
+      } else if (nameList == 'Damage') {
         url = '$ip/detection/delete-damage/$detectionId';
       } else {
         url = '$ip/detection/delete-maintain/$detectionId';
@@ -230,7 +291,10 @@ class deleteDetectionService {
       if (response.statusCode == 200) {
         return {'status': 'OK', 'message': 'Deleted successfully'};
       } else {
-        return {'status': 'error', 'message': 'Failed with status ${response.statusCode}'};
+        return {
+          'status': 'error',
+          'message': 'Failed with status ${response.statusCode}',
+        };
       }
     } catch (e) {
       print('Delete error: $e');
@@ -263,7 +327,6 @@ class DetectionCoordinateService {
   }
 }
 
-
 class UpdateHoleService {
   static Future<Map<String, dynamic>> updateHole({
     required String id,
@@ -285,10 +348,9 @@ class UpdateHoleService {
 
       // Add image file if provided
       if (image != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'image',
-          image.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath('image', image.path),
+        );
       }
 
       var response = await request.send();
@@ -340,10 +402,9 @@ class UpdateCrackService {
 
       // Add image file if provided
       if (image != null) {
-        request.files.add(await http.MultipartFile.fromPath(
-          'image',
-          image.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath('image', image.path),
+        );
       }
 
       var response = await request.send();
@@ -386,9 +447,7 @@ class UpdateMaintainService {
     try {
       final response = await http.post(
         Uri.parse('$ip/detection/update-maintain/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'sourceName': sourceName,
           'destinationName': destinationName,
@@ -435,9 +494,7 @@ class UpdateDamageService {
     try {
       final response = await http.post(
         Uri.parse('$ip/detection/update-damage/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'name': name,
           'sourceName': sourceName,
@@ -470,4 +527,3 @@ class UpdateDamageService {
     }
   }
 }
-

@@ -5,7 +5,7 @@ import 'package:pothole/ipconfig/ip.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pothole/screens/detection/road_detail.dart';
-
+import '../../services/detection_service.dart';
 import 'edit_screen.dart';
 
 class MaintainRoadScreen extends StatefulWidget {
@@ -18,20 +18,24 @@ class MaintainRoadScreen extends StatefulWidget {
 class _MaintainRoadState extends State<MaintainRoadScreen> {
   List<dynamic>? _maintainRoads;
   int _total = 0;
+  String _sortBy = 'newest'; // Mặc định sắp xếp theo newest
 
-  Future<void> _getListMaintainRoad() async {
-    var url = Uri.parse('$ip/detection/get-maintain-road');
-    var response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body)['data'];
+  Future<void> _fetchMaintainRoads({String? sortBy}) async {
+    final Map<String, dynamic> response = sortBy != null
+        ? await getSortService.getSorted('road', sortBy)
+        : await getListMaintainRoadsService.getListMaintainRoads();
+    if (response['status'] == 'OK') {
       setState(() {
-        _maintainRoads = data;
-        _total = data.length;
+        _maintainRoads = response['data'] is String && response['data'] == 'null' ? [] : response['data'];
+        _total = response['total'] is int ? response['total'] : _maintainRoads?.length ?? 0;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch routes from server')));
+        SnackBar(
+          content: Text('Error: ${response['message'] ?? 'Failed to fetch maintain roads'}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -43,17 +47,17 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
     if (response.statusCode == 200) {
       setState(() {
         _maintainRoads!.removeWhere((road) => road['_id'] == id);
-        _total--;
+        _total = _maintainRoads!.length; // Update total after deletion
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Maintain road deleted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Failed to delete maintain road.'),
           backgroundColor: Colors.red,
         ),
@@ -64,23 +68,71 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
   @override
   void initState() {
     super.initState();
-    _getListMaintainRoad();
+    _fetchMaintainRoads(); // Lấy danh sách mặc định (newest)
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _maintainRoads == null
-          ? const Center(child: CircularProgressIndicator())
-          : _maintainRoads!.isEmpty
-          ? const Center(child: Text('No maintain roads available'))
-          : RefreshIndicator(
-        onRefresh: _getListMaintainRoad,
-        child: ListView.builder(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _sortBy,
+              icon: const Icon(Icons.sort, color: Colors.blue),
+              dropdownColor: Colors.white,
+              style: const TextStyle(color: Colors.blue, fontSize: 16, fontWeight: FontWeight.bold),
+              underline: Container(height: 2, color: Colors.blue),
+              onChanged: (String? newValue) {
+                if (newValue != null && newValue != _sortBy) {
+                  setState(() {
+                    _sortBy = newValue;
+                  });
+                  _fetchMaintainRoads(sortBy: newValue);
+                }
+              },
+              items: <String>[
+                'newest',
+                'oldest',
+                'maintain_asc',
+                'maintain_desc',
+                'distance_asc',
+                'distance_desc',
+              ].map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    value == 'newest'
+                        ? 'Newest'
+                        : value == 'oldest'
+                        ? 'Oldest'
+                        : value == 'maintain_asc'
+                        ? 'Maintain Asc'
+                        : value == 'maintain_desc'
+                        ? 'Maintain Desc'
+                        : value == 'distance_asc'
+                        ? 'Distance Asc'
+                        : 'Distance Desc',
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _fetchMaintainRoads(sortBy: _sortBy),
+        child: _maintainRoads == null
+            ? const Center(child: CircularProgressIndicator())
+            : _maintainRoads!.isEmpty
+            ? const Center(child: Text('No maintain roads available'))
+            : ListView.builder(
           itemCount: _maintainRoads!.length,
           itemBuilder: (BuildContext context, int index) {
             final road = _maintainRoads![index];
-            final endDate = DateTime.parse(road['endDate']);
+            final endDate = DateTime.parse(road['endDate']).toLocal();
             final isExpired = endDate.isBefore(DateTime.now());
 
             return GestureDetector(
@@ -119,7 +171,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                           Text('Location A: ${road['locationA']}'),
                           Text('Location B: ${road['locationB']}'),
                           Text(
-                            'Date Maintain: ${road['dateMaintain']} days (${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['startDate']))} - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['endDate']))})',
+                            'Date Maintain: ${road['dateMaintain']} days (${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['startDate']).toLocal())} - ${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(road['endDate']).toLocal())})',
                           ),
                         ],
                       ),
@@ -135,7 +187,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                                 builder: (context) => EditScreen(
                                   item: road,
                                   type: 'maintain',
-                                  onUpdate: _getListMaintainRoad,
+                                  onUpdate: () => _fetchMaintainRoads(sortBy: _sortBy),
                                 ),
                               ),
                             );
@@ -148,7 +200,7 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
                               context: context,
                               builder: (BuildContext context) => AlertDialog(
                                 title: const Text('Xác nhận xóa'),
-                                content: const Text('Bạn có chắc chắn muốn xóa bảo trì này không?'),
+                                content: const Text('Bạn có chắc muốn xóa bảo trì này không?'),
                                 actions: <Widget>[
                                   TextButton(
                                     child: const Text('Huỷ'),
@@ -209,9 +261,8 @@ class _MaintainRoadState extends State<MaintainRoadScreen> {
     );
   }
 
-
   LatLng _parseLatLng(String latLngString) {
     final parts = latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
-    return LatLng(double.parse(parts[0]), double.parse(parts[1]));
+    return LatLng(double.parse(parts[0].trim()), double.parse(parts[1].trim()));
   }
 }

@@ -29,23 +29,17 @@ class MapScreenState extends State<MapScreen> {
 
   Set<Marker> _markers = {};
   late BitmapDescriptor _userIcon;
-  // late BitmapDescriptor _smallHoleIcon;
   late BitmapDescriptor _largeHoleIcon;
-  // late BitmapDescriptor _smallCrackIcon;
   late BitmapDescriptor _largeCrackIcon;
   late BitmapDescriptor _maintainIcon;
   late BitmapDescriptor _damageIcon;
 
-  // List<dynamic> smallHoles = [];
-  // List<dynamic> largeHoles = [];
-  // List<dynamic> smallCracks = [];
-  // List<dynamic> largeCracks = [];
   List<dynamic> holes = [];
   List<dynamic> cracks = [];
 
-
   bool _iconsLoaded = false;
-  Position? _currentPosition; // Change to nullable type
+  bool _permissionGranted = false;
+  Position? _currentPosition;
 
   static CameraPosition _kGooglePlex = const CameraPosition(
     target: LatLng(0, 0),
@@ -55,15 +49,7 @@ class MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCustomIcons().then((_) {
-      _iconsLoaded = true;
-      _getUserLocation();
-      _getCurrentLocation();
-      _showMyLocation();
-      fetchData();
-      _startListeningToLocationChanges();
-      _fetchAndDrawRoutes();
-    });
+    _checkAndRequestLocationPermission();
   }
 
   @override
@@ -73,9 +59,125 @@ class MapScreenState extends State<MapScreen> {
   }
 
   void _stopListeningLocation() {
-    _positionStreamSubscription.cancel();
+    if (_permissionGranted) {
+      _positionStreamSubscription.cancel();
+    }
   }
 
+  Future<void> _checkAndRequestLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Kiểm tra dịch vụ vị trí
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog();
+      return;
+    }
+
+    // Kiểm tra quyền vị trí
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showPermissionDeniedDialog();
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showPermissionDeniedForeverDialog();
+      return;
+    }
+
+    // Quyền đã được cấp
+    setState(() {
+      _permissionGranted = true;
+    });
+
+    // Khởi tạo các chức năng bản đồ
+    await _loadCustomIcons();
+    setState(() {
+      _iconsLoaded = true;
+    });
+    _getUserLocation();
+    _getCurrentLocation();
+    _showMyLocation();
+    fetchData();
+    _startListeningToLocationChanges();
+    _fetchAndDrawRoutes();
+  }
+
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Dịch vụ vị trí bị tắt'),
+        content: Text('Vui lòng bật dịch vụ vị trí để sử dụng bản đồ.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Geolocator.openLocationSettings();
+              Navigator.pop(context);
+              _checkAndRequestLocationPermission();
+            },
+            child: Text('Mở cài đặt'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Quyền vị trí bị từ chối'),
+        content: Text('Ứng dụng cần quyền vị trí để hiển thị bản đồ. Vui lòng cấp quyền.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _checkAndRequestLocationPermission();
+            },
+            child: Text('Thử lại'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermissionDeniedForeverDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Quyền vị trí bị từ chối vĩnh viễn'),
+        content: Text('Vui lòng vào cài đặt ứng dụng để cấp quyền vị trí.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await openAppSettings();
+              Navigator.pop(context);
+              _checkAndRequestLocationPermission();
+            },
+            child: Text('Mở cài đặt'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _moveCameraToUserLocation(Position position) async {
     if (!mounted) return;
@@ -93,9 +195,11 @@ class MapScreenState extends State<MapScreen> {
   }
 
   void _startListeningToLocationChanges() {
+    if (!_permissionGranted) return;
+
     const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high, // Độ chính xác cao
-      distanceFilter: 20, // Cập nhật vị trí mỗi khi di chuyển 10 mét
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 20,
     );
 
     _positionStreamSubscription =
@@ -103,40 +207,32 @@ class MapScreenState extends State<MapScreen> {
             .listen((Position position) {
           setState(() {
             _currentPosition = position;
-            _updateMarkerPosition(position); // Cập nhật marker trên bản đồ
+            _updateMarkerPosition(position);
           });
 
-          _moveCameraToUserLocation(position); // Di chuyển camera theo vị trí
+          _moveCameraToUserLocation(position);
         });
   }
-
 
   Future<void> _loadCustomIcons() async {
     try {
       final Uint8List location = await getBytesFromAsset('assets/images/car.png', 100);
-      final Uint8List smallHole = await getBytesFromAsset('assets/images/small_hole.png', 50);
       final Uint8List largeHole = await getBytesFromAsset('assets/images/large_hole.png', 70);
-      final Uint8List smallCrack = await getBytesFromAsset('assets/images/small_crack.png', 50);
       final Uint8List largeCrack = await getBytesFromAsset('assets/images/large_crack.png', 70);
       final Uint8List maintain = await getBytesFromAsset('assets/images/fix_road.png', 70);
       final Uint8List damage = await getBytesFromAsset('assets/images/damage.png', 70);
 
       setState(() {
         _userIcon = BitmapDescriptor.fromBytes(location);
-        // _smallHoleIcon = BitmapDescriptor.fromBytes(smallHole);
         _largeHoleIcon = BitmapDescriptor.fromBytes(largeHole);
-        // _smallCrackIcon = BitmapDescriptor.fromBytes(smallCrack);
         _largeCrackIcon = BitmapDescriptor.fromBytes(largeCrack);
         _maintainIcon = BitmapDescriptor.fromBytes(maintain);
         _damageIcon = BitmapDescriptor.fromBytes(damage);
-        _iconsLoaded = true; // Đặt _iconsLoaded sau khi tất cả icon được tải
       });
-
     } catch (e) {
       print('Lỗi khi tải icon: $e');
     }
   }
-
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
     try {
@@ -152,6 +248,11 @@ class MapScreenState extends State<MapScreen> {
   }
 
   void _showMyLocation() async {
+    if (!_permissionGranted) {
+      _checkAndRequestLocationPermission();
+      return;
+    }
+
     Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     _updateMarkerPosition(position);
     final GoogleMapController controller = await _controller.future;
@@ -161,6 +262,8 @@ class MapScreenState extends State<MapScreen> {
   }
 
   Future<void> fetchData() async {
+    if (!_permissionGranted) return;
+
     final response = await DetectionCoordinateService.getDetectionCoordinates();
 
     if (!mounted) return;
@@ -183,8 +286,6 @@ class MapScreenState extends State<MapScreen> {
     }
   }
 
-
-
   void _updateMarkers() {
     setState(() {
       _markers.clear();
@@ -196,7 +297,7 @@ class MapScreenState extends State<MapScreen> {
             markerId: MarkerId('hole$holeIndex'),
             position: LatLng(item[0], item[1]),
             infoWindow: InfoWindow(title: 'Hole'),
-            icon: _largeHoleIcon, // dùng icon lớn
+            icon: _largeHoleIcon,
           ),
         );
         holeIndex++;
@@ -209,7 +310,7 @@ class MapScreenState extends State<MapScreen> {
             markerId: MarkerId('crack$crackIndex'),
             position: LatLng(item[0], item[1]),
             infoWindow: InfoWindow(title: 'Crack'),
-            icon: _largeCrackIcon, // dùng icon lớn
+            icon: _largeCrackIcon,
           ),
         );
         crackIndex++;
@@ -228,7 +329,6 @@ class MapScreenState extends State<MapScreen> {
     });
   }
 
-
   Future<void> _drawRouteMaintainForMap(LatLng source, LatLng destination, int date, String createdAt, String updatedAt) async {
     final response = await http.get(Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json?origin=${source.latitude},${source.longitude}&destination=${destination.latitude},${destination.longitude}&key=$api_key'));
@@ -244,7 +344,7 @@ class MapScreenState extends State<MapScreen> {
         });
       }
 
-      if (!mounted) return; // 🔥 Kiểm tra widget còn mounted không trước khi gọi setState()
+      if (!mounted) return;
 
       setState(() {
         final id = PolylineId(source.toString() + '_' + destination.toString());
@@ -272,7 +372,7 @@ class MapScreenState extends State<MapScreen> {
         }
       });
     } else {
-      if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load directions'))
       );
@@ -294,7 +394,7 @@ class MapScreenState extends State<MapScreen> {
         });
       }
 
-      if (!mounted) return; // 🔥 Kiểm tra widget còn mounted không trước khi gọi setState()
+      if (!mounted) return;
 
       setState(() {
         final id = PolylineId(source.toString() + '_' + destination.toString());
@@ -322,15 +422,16 @@ class MapScreenState extends State<MapScreen> {
         }
       });
     } else {
-      if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load directions'))
       );
     }
   }
 
-
   Future<void> _fetchAndDrawRoutes() async {
+    if (!_permissionGranted) return;
+
     final response = await getListMaintainForMapService.getListMaintainForMap();
 
     if (!mounted) return;
@@ -370,8 +471,6 @@ class MapScreenState extends State<MapScreen> {
     }
   }
 
-
-
   LatLng _parseLatLng(String latLngString) {
     final parts =
     latLngString.replaceAll('LatLng(', '').replaceAll(')', '').split(',');
@@ -379,31 +478,8 @@ class MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    if (!_permissionGranted) return;
 
-    // Kiểm tra xem dịch vụ vị trí có bật không
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Dịch vụ vị trí bị tắt. Vui lòng bật GPS.');
-    }
-
-    // Kiểm tra quyền truy cập vị trí
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return Future.error('Người dùng từ chối quyền truy cập vị trí.');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      await openAppSettings();
-      return Future.error(
-          'Quyền truy cập vị trí bị từ chối vĩnh viễn. Hãy vào cài đặt để cấp quyền.');
-    }
-
-    // Nếu quyền được cấp, lấy vị trí hiện tại
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
@@ -411,8 +487,9 @@ class MapScreenState extends State<MapScreen> {
     print('Vị trí hiện tại: ${position.latitude}, ${position.longitude}');
   }
 
-
   Future<void> _getUserLocation() async {
+    if (!_permissionGranted) return;
+
     Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     _currentPosition = position;
     _kGooglePlex = CameraPosition(target: LatLng(position.latitude, position.longitude), zoom: 14.4746);
@@ -420,7 +497,7 @@ class MapScreenState extends State<MapScreen> {
   }
 
   void _updateMarkerPosition(Position position) {
-    if (!mounted) return; // 🔥 Kiểm tra nếu widget đã bị dispose
+    if (!mounted) return;
 
     setState(() {
       _currentPosition = position;
@@ -436,7 +513,6 @@ class MapScreenState extends State<MapScreen> {
     });
   }
 
-
   void _reloadData() {
     fetchData();
   }
@@ -446,7 +522,8 @@ class MapScreenState extends State<MapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GoogleMap(
+          _permissionGranted
+              ? GoogleMap(
             mapType: MapType.terrain,
             initialCameraPosition: _kGooglePlex,
             onMapCreated: (GoogleMapController controller) {
@@ -454,11 +531,24 @@ class MapScreenState extends State<MapScreen> {
               _reloadData();
             },
             markers: _markers,
-            polylines: Set<Polyline>.of(polylines.values), // Ensure polylines are added to the map
+            polylines: Set<Polyline>.of(polylines.values),
+          )
+              : Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Yêu cầu quyền vị trí để sử dụng bản đồ.'),
+                ElevatedButton(
+                  onPressed: _checkAndRequestLocationPermission,
+                  child: Text('Cấp quyền vị trí'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      floatingActionButton: Stack(
+      floatingActionButton: _permissionGranted
+          ? Stack(
         children: <Widget>[
           Positioned(
             bottom: 130.0,
@@ -506,115 +596,87 @@ class MapScreenState extends State<MapScreen> {
             ),
           ),
           Positioned(
-              bottom: 10.0,
-              left: 25,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.white70,
-                  border: Border.all(color: Colors.blueAccent),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        Text(
-                          'Damage',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
+            bottom: 10.0,
+            left: 25,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.white70,
+                border: Border.all(color: Colors.blueAccent),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Text(
+                        'Damage',
+                        style: GoogleFonts.beVietnamPro(
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Image.asset('assets/images/damage.png', width: 40, height: 40)
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        Text(
-                          'Maintain',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
+                      ),
+                      const SizedBox(width: 10),
+                      Image.asset('assets/images/damage.png', width: 40, height: 40),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Text(
+                        'Maintain',
+                        style: GoogleFonts.beVietnamPro(
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black,
                           ),
                         ),
-                        //const SizedBox(width: 10),
-                        Image.asset('assets/images/fix_road.png', width: 40, height: 40)
-                      ],
-                    ),
-                    // Row(
-                    //   children: [
-                    //     Text(
-                    //       'Small Hole',
-                    //       style: GoogleFonts.beVietnamPro(
-                    //         textStyle: const TextStyle(
-                    //           fontSize: 15,
-                    //           color: Colors.black,
-                    //         ),
-                    //       ),
-                    //     ),
-                    //     const SizedBox(width: 10),
-                    //     Image.asset('assets/images/small_hole.png', width: 40, height: 40)
-                    //   ],
-                    // ),
-                    Row(
-                      children: [
-                        Text(
-                          'Hole',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
+                      ),
+                      const SizedBox(width: 10),
+                      Image.asset('assets/images/fix_road.png', width: 40, height: 40),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Text(
+                        'Hole',
+                        style: GoogleFonts.beVietnamPro(
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Image.asset('assets/images/large_hole.png', width: 45, height: 45)
-                      ],
-                    ),
-                    // const SizedBox(height: 10),
-                    // Row(
-                    //   children: [
-                    //     Text(
-                    //       'Small Crack',
-                    //       style: GoogleFonts.beVietnamPro(
-                    //         textStyle: const TextStyle(
-                    //           fontSize: 15,
-                    //           color: Colors.black,
-                    //         ),
-                    //       ),
-                    //     ),
-                    //     const SizedBox(width: 5),
-                    //     Image.asset('assets/images/small_crack.png', width: 40, height: 40)
-                    //   ],
-                    // ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          'Crack',
-                          style: GoogleFonts.beVietnamPro(
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black,
-                            ),
+                      ),
+                      const SizedBox(width: 10),
+                      Image.asset('assets/images/large_hole.png', width: 45, height: 45),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const SizedBox(width: 10),
+                      Text(
+                        'Crack',
+                        style: GoogleFonts.beVietnamPro(
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Image.asset('assets/images/large_crack.png', width: 40, height: 40)
-                      ],
-                    ),
-                  ],
-                ),
-              )),
+                      ),
+                      const SizedBox(width: 10),
+                      Image.asset('assets/images/large_crack.png', width: 40, height: 40),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
-      ),
+      )
+          : null,
     );
   }
 }
